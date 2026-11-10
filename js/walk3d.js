@@ -8,6 +8,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as letters from './letters.js';
 import * as club from './club.js';
 import { cardImages } from './cards.js';
+import { crossStitch } from './stitch.js';
 import { connect as connectPresence, myId as myPresenceId } from './presence.js';
 
 const canvas = document.querySelector('.scene');
@@ -2525,12 +2526,14 @@ const joined = club.join().then(async (me) => {
 });
 document.addEventListener('scene:start', () => {
   rollBtn.classList.add('is-on');
-  joined.then((me) => {
+  joined.then(async (me) => {
     memberEl.classList.add('is-on');
     const ny = newYearCountdown();
     const dday = ny.days ? `D-${ny.days}` : `Happy New Year`;
     const note = ny.days ? `${ny.year}년 새해까지 ${ny.days}일 남았어요` : `${ny.year}년, 새해 복 많이 받으세요`;
-    welcomeEl.innerHTML = `<span class="welcome__dday"><span class="welcome__knit">${dday}</span></span>Welcome, ${club.memberName(me.no)}<small>${note}</small>`;
+    welcomeEl.innerHTML = `<span class="welcome__dday" role="img" aria-label="${dday}"></span>Welcome, ${club.memberName(me.no)}<small>${note}</small>`;
+    try { welcomeEl.querySelector('.welcome__dday').append(await crossStitch(dday)); }
+    catch { welcomeEl.querySelector('.welcome__dday').textContent = dday; }
     welcomeEl.classList.add('is-on');
     setTimeout(() => welcomeEl.classList.remove('is-on'), 5200);
   });

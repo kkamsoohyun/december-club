@@ -11,8 +11,8 @@ export const QUESTIONS_EN = {
     ['Thankful feelings', [
       'Which friend gave you the most strength this year? What was the moment?',
       'Is there something a friend said in passing that you still remember?',
-      'Tell us about a day that got better thanks to someone’s small kindness this year.',
-      'Is there something you’ve always been too shy to say but really want to tell someone?',
+      'Tell us about a day that got better thanks to someone\'s small kindness this year.',
+      'Is there something you\'ve always been too shy to say but really want to tell someone?',
     ]],
     ['Me, in my friendships', [
       'What new side of yourself did you discover through your friends this year?',
@@ -21,16 +21,16 @@ export const QUESTIONS_EN = {
       'Did something this year make you rethink what a good friend is?',
     ]],
     ['A slightly special question', [
-      'Who is the one friend who knows this year’s you best? What do they know about you?',
-      'Is there a memory with a friend that’s hard to explain to others but special to you both?',
+      'Who is the one friend who knows this year\'s you best? What do they know about you?',
+      'Is there a memory with a friend that\'s hard to explain to others but special to you both?',
       'Was there a moment this year when you reached out to someone first?',
       'Is there a friendship you want to keep for years to come? Why?',
     ]],
     ['Friendships ahead', [
       'What new memories do you want to make with your friends next year?',
-      'Is there someone you wish you’d seen more often this year?',
+      'Is there someone you wish you\'d seen more often this year?',
       'How do you hope the people you care about will remember you as a friend?',
-      'Is there something you’d love to do with a friend someday next year?',
+      'Is there something you\'d love to do with a friend someday next year?',
     ]],
   ],
   Family: [
@@ -42,31 +42,31 @@ export const QUESTIONS_EN = {
     ]],
     ['Grateful hearts', [
       'When were you most grateful to your family this year?',
-      'Is there a thank-you you’ve never said out loud but want your family to hear?',
+      'Is there a thank-you you\'ve never said out loud but want your family to hear?',
       'Was there a hard time you got through thanks to your family?',
       'Is there a small thing your family did for you that you still remember?',
     ]],
     ['Getting to know my family', [
       'Did you discover a new side of someone in your family this year?',
-      'Is there a way you’ve noticed you’re just like your family?',
-      'Is there something about your family you didn’t understand before but do now?',
+      'Is there a way you\'ve noticed you\'re just like your family?',
+      'Is there something about your family you didn\'t understand before but do now?',
       'Was there a moment you felt what you mean to your family?',
     ]],
     ['Little stories from home', [
       'Is there a funny story or habit only your family knows about?',
       'What is your favorite spot or time of day at home?',
-      'If you drew your family’s year-end in a single scene, what would it look like?',
+      'If you drew your family\'s year-end in a single scene, what would it look like?',
       'Is there a smell, sound or food that reminds you of your family?',
     ]],
     ['Us, next year', [
       'What memories do you want to make with your family next year?',
       'Is there something you want to say or do more often for your family next year?',
-      'Is there a place you’d love to visit with your family?',
+      'Is there a place you\'d love to visit with your family?',
       'How do you hope your family will be a few years from now?',
     ]],
   ],
   Growth: [
-    ['How I’ve changed', [
+    ['How I\'ve changed', [
       'What has changed most about you since last year?',
       'Of the things you tried for the first time this year, which took the most courage?',
       'Is there something that used to be hard but feels a little easier now?',
@@ -79,7 +79,7 @@ export const QUESTIONS_EN = {
       'Did you have your own way of comforting yourself?',
     ]],
     ['Lessons learned', [
-      'What’s one thing you learned this year that will stay with you the longest?',
+      'What\'s one thing you learned this year that will stay with you the longest?',
       'Is there an attitude or saying you learned from someone and took to heart?',
       'Did you change your mind about anything this year?',
       'Did you learn something new about yourself?',
@@ -87,18 +87,18 @@ export const QUESTIONS_EN = {
     ['Praise for myself', [
       'Which moment this year do you most want to praise yourself for?',
       'Is there an effort of yours that no one else noticed, but you know about?',
-      'If you gave this year’s you an award, what would it be called?',
+      'If you gave this year\'s you an award, what would it be called?',
       'Is there something small you kept doing steadily all year?',
     ]],
     ['Growing next year', [
       'How do you want to grow a little more next year?',
-      'Is there something new you’d like to learn next year?',
-      'Is there a promise you hope next year’s you will keep?',
+      'Is there something new you\'d like to learn next year?',
+      'Is there a promise you hope next year\'s you will keep?',
       'What would you like to hear from yourself a year from now?',
     ]],
   ],
   Feeling: [
-    ['This year’s feelings', [
+    ['This year\'s feelings', [
       'If you described this year as one feeling, what would it be?',
       'When did you laugh the most this year?',
       'Was there a moment this year that moved you to tears?',
@@ -107,7 +107,7 @@ export const QUESTIONS_EN = {
     ['Warm-hearted moments', [
       'Was there a moment this year that made your heart feel soft and warm?',
       'Did a single word from someone ever brighten your whole day?',
-      'When did you think, “Ah, I’m happy,” this year?',
+      'When did you think, "Ah, I\'m happy," this year?',
       'Is there a scene from this year that makes you smile just thinking about it?',
     ]],
     ['When it was a little hard', [
@@ -125,13 +125,13 @@ export const QUESTIONS_EN = {
     ['Sharing my heart', [
       'Is there a thank-you you never said this year? Want to say it now?',
       'Is there someone you still feel sorry toward?',
-      'Besides “you did well,” what would you like to say to this year’s you?',
-      'What frame of mind do you hope next year’s you will carry through each day?',
+      'Besides "you did well," what would you like to say to this year\'s you?',
+      'What frame of mind do you hope next year\'s you will carry through each day?',
     ]],
   ],
   Wish: [
     ['Wishes for next year', [
-      'If you could make just one wish for next year’s you, what would it be?',
+      'If you could make just one wish for next year\'s you, what would it be?',
       'By this time next year, what would make you happiest to have come true?',
       'Is there something you want to try at least once next year?',
       'If you chose one word for next year, what would it be?',
@@ -140,19 +140,19 @@ export const QUESTIONS_EN = {
       'Is there a wish you hope comes true for someone you care about?',
       'What wish would you make for the club members who will read this card?',
       'Is there something you hope will be less painful or less hard for your family or friends next year?',
-      'If you could grant someone’s wish for them, whose wish would it be, and what?',
+      'If you could grant someone\'s wish for them, whose wish would it be, and what?',
     ]],
     ['Small, sure wishes', [
       'Nothing grand needed: what small happiness do you want to enjoy often next year?',
       'What do you hope an ordinary day next year will look like?',
       'What do you want to do more of next year, and less of?',
-      'Is there a gift you’d like to give yourself next year?',
+      'Is there a gift you\'d like to give yourself next year?',
     ]],
     ['Long-held dreams', [
-      'Is there a dream you’ve held in your heart for a long time?',
-      'Is there a place you’d love to visit someday?',
+      'Is there a dream you\'ve held in your heart for a long time?',
+      'Is there a place you\'d love to visit someday?',
       'Who do you hope to be ten years from now?',
-      'Is there a wish you haven’t told anyone yet? Want to write it here, quietly?',
+      'Is there a wish you haven\'t told anyone yet? Want to write it here, quietly?',
     ]],
     ['Wishes for the world', [
       'How do you hope the world you live in will change a little next year?',

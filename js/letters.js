@@ -249,7 +249,7 @@ export const QUESTIONS = {
   ],
 };
 
-export const PHOTOS = { Friends: 'assets/friends.webp' };
+export const PHOTOS = { Friends: 'assets/friends.webp', Family: 'assets/family-photo.webp' };
 
 // 카드에는 한국어 원문(분류·질문)을 저장하고, 영어로 볼 때만 바꿔 보여 줌
 const EN = new Map();

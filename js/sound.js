@@ -71,14 +71,17 @@ window.Sound = (() => {
 
   // 눈 밟는 소리: 짧은 노이즈를 대역통과 필터로 걸러 "뽀득"
   let noiseBuf = null;
-  function crunch() {
-    if (!ready()) return;
+  crunch.prep = () => {
     if (!noiseBuf) {
       const len = Math.floor(ctx.sampleRate * 0.2);
       noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
       const d = noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 1 : 0.35);
     }
+  };
+  function crunch() {
+    if (!ready()) return;
+    crunch.prep();
     const now = ctx.currentTime + 0.005;
     const src = ctx.createBufferSource();
     src.buffer = noiseBuf;
@@ -95,6 +98,29 @@ window.Sound = (() => {
     src.start(now, Math.random() * 0.02);
     src.stop(now + 0.18);
   }
+
+  // 눈뭉치: 던질 때 '휙', 맞을 때 '퍽' (vol 0~1: 멀수록 작게)
+  function noiseHit(vol, f0, f1, dur, q) {
+    if (!ready() || vol <= 0.01) return;
+    crunch.prep();
+    const now = ctx.currentTime + 0.005;
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuf;
+    src.loop = true;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.Q.value = q;
+    bp.frequency.setValueAtTime(f0, now);
+    bp.frequency.exponentialRampToValueAtTime(f1, now + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.5 * vol, now + dur * 0.15);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    src.connect(bp).connect(g).connect(out);
+    src.start(now);
+    src.stop(now + dur + 0.02);
+  }
+  const swish = (vol = 1) => noiseHit(vol * 0.6, 700, 2600, 0.22, 1.4);
+  const splat = (vol = 1) => noiseHit(vol, 900, 260, 0.2, 0.7);
 
   /* 나무문 경첩이 끼이익 하는 소리
      경첩의 '붙었다 미끄러졌다(stick-slip)'를 빠른 딸깍임 열로 만들고, 문판의 울림(공명)을 입힘 */
@@ -429,5 +455,5 @@ window.Sound = (() => {
     };
   })();
 
-  return { unlock, bell, crunch, creak, thud, music, fire, get ready() { return ready(); } };
+  return { unlock, bell, crunch, swish, splat, creak, thud, music, fire, get ready() { return ready(); } };
 })();

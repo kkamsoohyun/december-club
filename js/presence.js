@@ -8,10 +8,11 @@ const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
 export const myId = Math.random().toString(36).slice(2, 10);   // 이번 접속(탭) 하나를 가리키는 이름
 
 /**
- * @param {{ no:number, onPos:(m:object)=>void, onLeave:(id:string)=>void, onJoin:()=>void }} h
- * @returns {Promise<(msg:object)=>void>} 보내기 함수
+ * @param {{ no:number, onPos:(m:object)=>void, onThrow:(m:object)=>void, onLeave:(id:string)=>void, onJoin:()=>void }} h
+ * @returns {Promise<{ send:(msg:object)=>void, emit:(event:string, msg:object)=>void }>} 위치 보내기 / 눈 던지기 같은 일 알리기
  */
-export async function connect({ no, onPos, onLeave, onJoin }) {
+export async function connect({ no, onPos, onThrow, onLeave, onJoin }) {
+  const none = { send() {}, emit() {} };
   if (SUPABASE.url && SUPABASE.anonKey) {
     try {
       const { createClient } = await import(SB_JS);
@@ -24,6 +25,7 @@ export async function connect({ no, onPos, onLeave, onJoin }) {
       });
       let ready = false;
       ch.on('broadcast', { event: 'pos' }, ({ payload }) => payload && payload.id !== myId && onPos(payload));
+      ch.on('broadcast', { event: 'throw' }, ({ payload }) => payload && payload.id !== myId && onThrow(payload));
       ch.on('broadcast', { event: 'bye' }, ({ payload }) => payload && onLeave(payload.id));
       ch.on('presence', { event: 'leave' }, ({ key }) => onLeave(key));
       ch.on('presence', { event: 'join' }, ({ key }) => { if (key !== myId) onJoin(); });
@@ -32,23 +34,30 @@ export async function connect({ no, onPos, onLeave, onJoin }) {
         else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') ready = false;
       });
       addEventListener('pagehide', () => { ch.send({ type: 'broadcast', event: 'bye', payload: { id: myId } }); });
-      return (msg) => { if (ready) ch.send({ type: 'broadcast', event: 'pos', payload: msg }); };
+      return {
+        send: (msg) => { if (ready) ch.send({ type: 'broadcast', event: 'pos', payload: msg }); },
+        emit: (event, msg) => { if (ready) ch.send({ type: 'broadcast', event, payload: msg }); },
+      };
     } catch (e) {
       console.warn('실시간 연결 실패 — 혼자 걷기로 계속', e);
-      return () => {};
+      return none;
     }
   }
 
   // 로컬 시험용: 같은 브라우저 탭끼리
-  if (!('BroadcastChannel' in window)) return () => {};
+  if (!('BroadcastChannel' in window)) return none;
   const bc = new BroadcastChannel('december-village');
   bc.onmessage = ({ data }) => {
     if (!data || data.id === myId) return;
     if (data.type === 'bye') onLeave(data.id);
     else if (data.type === 'hello') onJoin();
+    else if (data.type === 'throw') onThrow(data);
     else onPos(data);
   };
   addEventListener('pagehide', () => bc.postMessage({ type: 'bye', id: myId }));
   bc.postMessage({ type: 'hello', id: myId });
-  return (msg) => bc.postMessage(msg);
+  return {
+    send: (msg) => bc.postMessage(msg),
+    emit: (event, msg) => bc.postMessage({ ...msg, type: event }),
+  };
 }

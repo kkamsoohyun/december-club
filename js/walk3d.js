@@ -1560,19 +1560,20 @@ function makeNameTag(root) {
    걸을 때만 0.3초마다 위치를 보내고, 멈춰 있으면 3초마다 '나 여기 있어'만 보냄
    받은 위치로 부드럽게 따라가며 걷는 자세를 만들고, 10초 동안 소식이 없으면 사라짐 */
 const presence = (() => {
-  let sendFn = null, no = null, lastSent = 0, lastMsg = null, force = false;
+  let link = null, no = null, lastSent = 0, lastMsg = null, force = false;
   return {
     async start(memberNo) {
       no = memberNo;
-      sendFn = await connectPresence({
+      link = await connectPresence({
         no,
         onPos: (m) => receiveOther(m),
+        onThrow: (m) => receiveThrow(m),
         onLeave: (id) => removeOther(id),
         onJoin: () => { force = true; },              // 새로 들어온 사람에게 내 위치를 바로 알려 줌
       });
     },
     send(state) {
-      if (!sendFn || document.hidden) return;
+      if (!link || document.hidden) return;
       const now = performance.now();
       const m = {
         id: myPresenceId, no,
@@ -1583,9 +1584,10 @@ const presence = (() => {
         || Math.abs(m.yaw - lastMsg.yaw) > 0.05 || m.sit !== lastMsg.sit || Math.abs(m.y - lastMsg.y) > 0.03;
       const due = force || (changed ? now - lastSent > 300 : now - lastSent > 3000);
       if (!due) return;
-      sendFn(m);
+      link.send(m);
       lastSent = now; lastMsg = m; force = false;
     },
+    throw(m) { link?.emit('throw', m); },
   };
 })();
 
@@ -1610,6 +1612,7 @@ function receiveOther(m) {
 function removeOther(id) {
   const o = others.get(id);
   if (!o) return;
+  clearSplats(o.h);
   scene.remove(o.h.root);
   o.h.root.traverse((x) => {
     if (x.geometry) x.geometry.dispose();
@@ -1632,6 +1635,7 @@ function updateOthers(dt, t) {
     if (speedF < 0.05) o.phase += (Math.round(o.phase / Math.PI) * Math.PI - o.phase) * Math.min(1, dt * 8);
     o.sitK += (o.sit - o.sitK) * Math.min(1, dt * 5);
     poseHero(o.h, o.phase, speedF, t, o.sitK);
+    throwPose(o.h, t - (o.thrown ?? -10));
   }
 }
 
@@ -2083,7 +2087,7 @@ const SNOWBALL = { START: 0.14, MAX: 1.05, GROW: 0.045, KEEP: 24 };
 const snowballMat = new THREE.MeshStandardMaterial({ color: 0xf3f7ff, roughness: 1, metalness: 0 });
 const snowballGeo = new THREE.IcosahedronGeometry(1, 3);
 let rolling = null;                                      // 굴리는 중인 눈덩이 { mesh, r, last }
-const rollBtn = document.querySelector('.roll');
+const rollBtn = document.querySelector('.roll:not(.throw)');
 
 function startRolling() {
   if (rolling || state.seat) return;
@@ -2151,6 +2155,163 @@ addEventListener('keydown', (e) => {
   if (e.code !== 'KeyR' || !active || letters.isOpen() || e.repeat) return;
   e.preventDefault();
   toggleRolling();
+});
+
+/* ───────── 눈싸움 ─────────
+   F(또는 ❄ 버튼)를 누르면 카메라가 보는 쪽으로 눈뭉치를 던짐
+   캐릭터에 맞으면 맞은 자리에 눈이 묻었다가 몇 초 뒤 스르르 없어짐
+   던지는 건 다른 접속자에게도 보이고, 맞았는지는 각자 화면에서 똑같이 계산함 */
+const THROW = { SPEED: 15, UP: 3.4, G: 13, R: 0.11, COOLDOWN: 0.35, LIFE: 3, STICK: 3.2 };
+const flying = [];                                       // 날아가는 눈뭉치 { mesh, vel, owner, age }
+const splats = [];                                       // 캐릭터에 묻은 눈 { group, h, age }
+const bits = [];                                        // 부서지는 눈가루 { mesh, vel, age }
+const throwBtn = document.querySelector('.throw');
+const flakeGeo = new THREE.IcosahedronGeometry(1, 1);
+let lastThrow = -10;
+
+function throwSnowball() {
+  const t = clock.elapsedTime;
+  if (t - lastThrow < THROW.COOLDOWN || state.seat || insideHouse(state.pos.x, state.pos.z, -0.1)) return;
+  if (rolling) letGo();
+  lastThrow = t;
+  const dx = -Math.sin(cam.yaw), dz = -Math.cos(cam.yaw);   // 카메라가 보는 쪽
+  state.yaw = Math.atan2(dx, dz);
+  const m = {
+    id: myPresenceId,
+    x: +(state.pos.x + dx * 0.35).toFixed(2), y: +(state.pos.y + 1.25).toFixed(2), z: +(state.pos.z + dz * 0.35).toFixed(2),
+    vx: +(dx * THROW.SPEED).toFixed(2), vy: THROW.UP, vz: +(dz * THROW.SPEED).toFixed(2),
+    yaw: +state.yaw.toFixed(2),
+  };
+  launch(m);
+  presence.throw(m);
+  window.Sound && Sound.swish(1);
+}
+
+function receiveThrow(m) {
+  if (![m.x, m.y, m.z, m.vx, m.vy, m.vz].every(Number.isFinite)) return;
+  if (Math.hypot(m.vx, m.vz) > 30 || Math.abs(m.vy) > 10) return;
+  const o = others.get(m.id);
+  if (o) { o.thrown = clock.elapsedTime; if (Number.isFinite(m.yaw)) { o.targetYaw = m.yaw; o.yaw = m.yaw; } }
+  launch(m);
+  window.Sound && Sound.swish(near(m.x, m.z));
+}
+
+function launch(m) {
+  const mesh = new THREE.Mesh(flakeGeo, snowballMat);
+  mesh.scale.setScalar(THROW.R);
+  mesh.castShadow = true;
+  mesh.position.set(m.x, m.y, m.z);
+  scene.add(mesh);
+  flying.push({ mesh, vel: new THREE.Vector3(m.vx, m.vy, m.vz), owner: m.id, age: 0 });
+}
+
+const near = (x, z) => Math.max(0, 1 - Math.hypot(x - state.pos.x, z - state.pos.z) / 28);
+
+// 던지는 팔: 뒤로 젖혔다가 앞으로 휙
+function throwPose(h, since) {
+  if (since < 0 || since > 0.5) return;
+  const a = since < 0.1 ? -2.8 * (since / 0.1)
+    : since < 0.24 ? -2.8 + 2.2 * ((since - 0.1) / 0.14)
+    : -0.6 * (1 - (since - 0.24) / 0.26);
+  h.arms[1].rotation.x = a;
+}
+
+function updateThrows(dt) {
+  const targets = [[myPresenceId, hero]];
+  for (const [id, o] of others) targets.push([id, o.h]);
+  for (let i = flying.length - 1; i >= 0; i--) {
+    const f = flying[i];
+    f.age += dt;
+    f.vel.y -= THROW.G * dt;
+    const p = f.mesh.position.addScaledVector(f.vel, dt);
+    let hit = null;
+    for (const [id, h] of targets) {                     // 캐릭터 몸통(둥근 기둥)에 맞았나
+      if (id === f.owner) continue;
+      const c = h.root.position;
+      if (Math.hypot(p.x - c.x, p.z - c.z) < 0.42 && p.y > c.y + 0.05 && p.y < c.y + 1.6) { hit = h; break; }
+    }
+    let gone = !!hit || f.age > THROW.LIFE || p.y < heightAt(p.x, p.z);
+    if (!gone) for (const o of trees) {                  // 나무·눈사람·가로등
+      if (Math.hypot(p.x - o.x, p.z - o.z) < o.r && p.y < 5) { gone = true; break; }
+    }
+    if (!gone) for (const b of boxes) {                  // 집 벽
+      if (b.off) continue;
+      const c = Math.cos(b.rot), sn = Math.sin(b.rot), dx = p.x - b.x, dz = p.z - b.z;
+      if (Math.abs(dx * c - dz * sn) < b.hw && Math.abs(dx * sn + dz * c) < b.hd && p.y < 6) { gone = true; break; }
+    }
+    if (!gone) continue;
+    if (hit) stickSnow(hit, p);
+    burst(p, hit ? 10 : 7);
+    window.Sound && Sound.splat(near(p.x, p.z) * (hit ? 1 : 0.6));
+    scene.remove(f.mesh);
+    flying.splice(i, 1);
+  }
+
+  // 묻은 눈: 잠깐 그대로 있다가 작아지며 사라짐
+  for (let i = splats.length - 1; i >= 0; i--) {
+    const s = splats[i];
+    s.age += dt;
+    const k = Math.max(0, 1 - Math.max(0, s.age - (THROW.STICK - 0.9)) / 0.9);
+    s.group.scale.setScalar(k);
+    s.group.position.y = s.y - (1 - k) * 0.12;           // 녹으며 살짝 흘러내림
+    if (k <= 0) { s.group.removeFromParent(); splats.splice(i, 1); }
+  }
+  // 눈가루
+  for (let i = bits.length - 1; i >= 0; i--) {
+    const q = bits[i];
+    q.age += dt;
+    q.vel.y -= 9 * dt;
+    q.mesh.position.addScaledVector(q.vel, dt);
+    q.mesh.scale.setScalar(q.size * Math.max(0, 1 - q.age / 0.55));
+    if (q.age > 0.55) { scene.remove(q.mesh); bits.splice(i, 1); }
+  }
+}
+
+// 맞은 자리에 눈 덩어리 몇 개를 붙임 (몸을 따라 움직이도록 몸통 그룹에 붙임)
+function stickSnow(h, worldP) {
+  const local = h.body.worldToLocal(worldP.clone());
+  const center = new THREE.Vector3(0, Math.min(1.35, Math.max(0.35, local.y)), 0);
+  const out = local.clone().sub(center).setY(0);
+  if (out.lengthSq() < 1e-4) out.set(0, 0, 1);
+  out.normalize();
+  local.copy(center).addScaledVector(out, local.y > 0.95 ? 0.3 : 0.27);   // 머리·몸 겉면
+  const group = new THREE.Group();
+  group.position.copy(local);
+  group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), out);
+  for (let i = 0; i < 6; i++) {
+    const m = new THREE.Mesh(flakeGeo, snowballMat);
+    const r = 0.035 + Math.random() * 0.045;
+    m.scale.set(r * 1.3, r * 1.2, r * 0.55);             // 납작하게 철퍽
+    m.position.set((Math.random() - 0.5) * 0.18, (Math.random() - 0.5) * 0.16, Math.random() * 0.02);
+    group.add(m);
+  }
+  h.body.add(group);
+  splats.push({ group, h, age: 0, y: local.y });
+  while (splats.length > 60) splats.shift().group.removeFromParent();
+}
+function clearSplats(h) {
+  for (let i = splats.length - 1; i >= 0; i--) {
+    if (splats[i].h === h) { splats[i].group.removeFromParent(); splats.splice(i, 1); }
+  }
+}
+
+function burst(p, n) {
+  for (let i = 0; i < n; i++) {
+    const mesh = new THREE.Mesh(flakeGeo, snowballMat);
+    const size = 0.025 + Math.random() * 0.035;
+    mesh.scale.setScalar(size);
+    mesh.position.copy(p);
+    scene.add(mesh);
+    const a = Math.random() * Math.PI * 2, up = 1.5 + Math.random() * 2.5, sp = 0.8 + Math.random() * 1.8;
+    bits.push({ mesh, size, age: 0, vel: new THREE.Vector3(Math.cos(a) * sp, up, Math.sin(a) * sp) });
+  }
+}
+
+throwBtn.addEventListener('click', () => { if (active && !letters.isOpen()) throwSnowball(); });
+addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyF' || !active || letters.isOpen() || e.repeat) return;
+  e.preventDefault();
+  throwSnowball();
 });
 
 /* ───────── 입력 ───────── */
@@ -2370,8 +2531,10 @@ function update(dt, t) {
   hero.root.position.copy(state.pos);
   hero.root.rotation.y = state.yaw;
   poseHero(hero, state.phase, speedF, t, state.sitK);
+  throwPose(hero, t - lastThrow);
 
   updateSnowball(indoors);
+  updateThrows(dt);
 
   // 다른 접속자: 내 위치를 보내고, 다른 사람들을 받은 위치로 부드럽게 움직임
   presence.send(state);
@@ -2526,6 +2689,7 @@ const joined = club.join().then(async (me) => {
 });
 document.addEventListener('scene:start', () => {
   rollBtn.classList.add('is-on');
+  throwBtn.classList.add('is-on');
   joined.then(async (me) => {
     memberEl.classList.add('is-on');
     const ny = newYearCountdown();

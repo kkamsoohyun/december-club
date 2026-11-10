@@ -272,6 +272,9 @@
       transition: opacity .8s ease, background .2s ease, box-shadow .2s ease;
     }
     .roll.is-on { opacity: 1; pointer-events: auto; }
+    /* 눈 던지기 버튼 — 굴리기 버튼 위 */
+    .roll.throw { bottom: max(88px, calc(env(safe-area-inset-bottom) + 76px)); font-size: 24px; }
+    .roll.throw:active { background: rgba(255, 243, 220, 0.9); color: #0b2a6a; }
     .roll[aria-pressed="true"] { background: rgba(255, 243, 220, 0.9); color: #0b2a6a; box-shadow: 0 0 22px rgba(255, 230, 190, 0.7); }
     .nearby kbd {
       margin-left: 8px;
@@ -694,7 +697,8 @@
     <canvas class="snow snow--front" aria-hidden="true"></canvas>
 
     <p class="hint hint--intro">♪ tap to hear the bells</p>
-    <p class="hint hint--walk"><span class="keys">WASD / ← ↑ → ↓ to walk · drag to look around · R to roll a snowball</span><span class="touch">drag left side to walk · right side to look</span></p>
+    <p class="hint hint--walk"><span class="keys">WASD / ← ↑ → ↓ to walk · drag to look around · R to roll a snowball · F to throw</span><span class="touch">drag left side to walk · right side to look</span></p>
+    <button class="roll throw" type="button" aria-label="눈 던지기 (F)" title="눈 던지기 (F)">❄</button>
     <button class="roll" type="button" aria-pressed="false" aria-label="눈 굴리기 (R)" title="눈 굴리기 (R)">☃</button>
 
     <button class="music" type="button" aria-pressed="true" aria-label="음악 켜기/끄기 (M)" title="음악 켜기/끄기 (M)">♪</button>

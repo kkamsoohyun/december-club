@@ -406,6 +406,7 @@ let makeLamp;
 }
 
 /* ───────── 출발점 표지판 ───────── */
+const mailboxSpot = new THREE.Vector3();          // 음악 우체통 자리 (노래 추천 받을 때 씀)
 const signHearts = [];          // 표지판 하트 전구 { mat, glow, base, phase, size }
 {
   const p = pathCurve.getPointAt(START_T);
@@ -475,8 +476,103 @@ const signHearts = [];          // 표지판 하트 전구 { mat, glow, base, ph
   heartLight.position.set(0, 1.5, 0.8);
   sign.add(heartLight);
 
+  // 표지판 옆 빨간 빈티지 우체통 (연말에 듣고 싶은 노래를 추천받는 곳)
+  const box = makeMailbox();
+  box.position.set(1.55, 0, 0.35);
+  box.rotation.y = -0.25;
+  sign.add(box);
+
   scene.add(sign);
   trees.push({ x: sign.position.x, z: sign.position.z, r: 0.3 });
+  sign.updateMatrixWorld(true);
+  const bp = box.getWorldPosition(new THREE.Vector3());
+  trees.push({ x: bp.x, z: bp.z, r: 0.42 });
+  mailboxSpot.copy(bp);
+}
+
+/* 빈티지 우체통: 둥근 기둥형 몸통, 둥근 지붕, 투입구, 크림색 MUSIC 명판, 바랜 금색 테
+   칠이 조금씩 벗겨진 빨간 페인트 느낌을 캔버스로 그려 입힘 */
+function makeMailbox() {
+  const g = new THREE.Group();
+  const paintTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 256;
+    const x = c.getContext('2d');
+    x.fillStyle = '#b3161e'; x.fillRect(0, 0, 256, 256);
+    let seed = 11;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 900; i++) {                         // 얼룩·바랜 자국
+      x.fillStyle = rnd() < 0.5 ? `rgba(90, 8, 12, ${0.05 + rnd() * 0.12})` : `rgba(230, 90, 80, ${0.03 + rnd() * 0.06})`;
+      x.beginPath(); x.arc(rnd() * 256, rnd() * 256, 1 + rnd() * 6, 0, Math.PI * 2); x.fill();
+    }
+    for (let i = 0; i < 40; i++) {                          // 벗겨진 칠 사이로 보이는 쇠
+      x.fillStyle = `rgba(60, 40, 35, ${0.25 + rnd() * 0.3})`;
+      x.beginPath(); x.ellipse(rnd() * 256, rnd() * 256, 1 + rnd() * 3, 0.6 + rnd() * 1.5, rnd() * 3, 0, Math.PI * 2); x.fill();
+    }
+    const grad = x.createLinearGradient(0, 0, 0, 256);     // 아래쪽은 흙탕물에 살짝 어두움
+    grad.addColorStop(0.7, 'rgba(40, 10, 10, 0)'); grad.addColorStop(1, 'rgba(40, 10, 10, 0.35)');
+    x.fillStyle = grad; x.fillRect(0, 0, 256, 256);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = THREE.RepeatWrapping;
+    return t;
+  })();
+  const red = new THREE.MeshStandardMaterial({ map: paintTex, roughness: 0.55, metalness: 0.15, emissive: 0x3a0306, emissiveIntensity: 0.6 });
+  const darkRed = new THREE.MeshStandardMaterial({ color: 0x6e0b10, roughness: 0.6, metalness: 0.2 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xc9a25a, roughness: 0.45, metalness: 0.7, emissive: 0x2a1a00 });
+  const black = new THREE.MeshStandardMaterial({ color: 0x140808, roughness: 0.8 });
+  const snowM = new THREE.MeshLambertMaterial({ color: COLORS.pineSnow });
+  const add = (geo, m, x, y, z) => {
+    const o = new THREE.Mesh(geo, m);
+    o.position.set(x, y, z);
+    o.castShadow = true; o.receiveShadow = true;
+    g.add(o);
+    return o;
+  };
+
+  add(new THREE.CylinderGeometry(0.36, 0.38, 0.12, 32), darkRed, 0, 0.06, 0);           // 받침
+  add(new THREE.CylinderGeometry(0.3, 0.32, 1.02, 32), red, 0, 0.63, 0);                // 몸통
+  add(new THREE.TorusGeometry(0.31, 0.012, 8, 40), brass, 0, 0.2, 0).rotation.x = Math.PI / 2;
+  add(new THREE.CylinderGeometry(0.335, 0.335, 0.07, 32), darkRed, 0, 1.17, 0);         // 지붕 테
+  add(new THREE.TorusGeometry(0.335, 0.013, 8, 40), brass, 0, 1.2, 0).rotation.x = Math.PI / 2;
+  const dome = add(new THREE.SphereGeometry(0.33, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), red, 0, 1.2, 0);
+  dome.scale.y = 0.55;
+  add(new THREE.SphereGeometry(0.05, 16, 12), brass, 0, 1.39, 0);                       // 꼭지
+  const cap = add(new THREE.SphereGeometry(0.3, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), snowM, 0.02, 1.25, -0.01);
+  cap.scale.set(1, 0.42, 0.96);                                                           // 지붕에 쌓인 눈
+
+  // 투입구: 검은 틈 + 금색 덮개
+  add(new THREE.BoxGeometry(0.28, 0.045, 0.06), black, 0, 1.0, 0.285);
+  add(new THREE.BoxGeometry(0.32, 0.02, 0.07), brass, 0, 1.035, 0.29);
+
+  // 명판: 크림색 법랑판에 MUSIC
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 176;
+  const x = c.getContext('2d');
+  x.fillStyle = '#f1e4c6'; x.beginPath(); x.roundRect(6, 6, 244, 164, 22); x.fill();
+  x.strokeStyle = '#8a1016'; x.lineWidth = 6; x.beginPath(); x.roundRect(16, 16, 224, 144, 16); x.stroke();
+  x.fillStyle = '#9d121a'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.font = 'bold 54px Georgia, "Times New Roman", serif';
+  x.fillText('MUSIC', 128, 74);
+  x.font = 'italic 24px Georgia, serif';
+  x.fillText('♪  song requests  ♪', 128, 124);
+  const plateTex = new THREE.CanvasTexture(c);
+  plateTex.colorSpace = THREE.SRGBColorSpace;
+  plateTex.anisotropy = 4;
+  const plate = add(new THREE.CylinderGeometry(0.306, 0.306, 0.24, 32, 1, true, -0.62, 1.24),
+    new THREE.MeshStandardMaterial({ map: plateTex, roughness: 0.35, metalness: 0.05, transparent: true, alphaTest: 0.3, emissive: 0xffffff, emissiveMap: plateTex, emissiveIntensity: 0.18 }), 0, 0.78, 0);
+  plate.castShadow = false;
+
+  // 수거 문(아래쪽 네모 문짝 + 열쇠 구멍)
+  const door = add(new THREE.CylinderGeometry(0.304, 0.304, 0.3, 32, 1, true, -0.5, 1.0), darkRed, 0, 0.42, 0);
+  door.material = darkRed.clone(); door.material.side = THREE.DoubleSide;
+  add(new THREE.SphereGeometry(0.018, 10, 8), brass, 0, 0.47, 0.305);
+
+  // 밤에도 보이게 따뜻한 빛 하나
+  const glow = new THREE.PointLight(0xffb27a, 2.2, 4, 1.6);
+  glow.position.set(0, 1.3, 0.9);
+  g.add(glow);
+  return g;
 }
 
 /* ───────── 반짝이는 전구 (점 두 겹: 작은 심지 + 번지는 빛) ───────── */

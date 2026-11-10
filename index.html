@@ -227,6 +227,32 @@
     .music.is-on { opacity: 1; pointer-events: auto; }
     .music:hover { background: rgba(0, 28, 95, 0.6); }
     .music[aria-pressed="false"] { color: rgba(233, 220, 192, 0.45); text-decoration: line-through; }
+    /* 언어 바꾸기 (KO · EN) — 인트로에서도 보이게 늘 떠 있음 */
+    .lang {
+      position: fixed;
+      top: max(14px, env(safe-area-inset-top));
+      right: calc(max(14px, env(safe-area-inset-right)) + 50px);
+      z-index: 30;
+      height: 40px;
+      padding: 0 12px;
+      display: inline-flex; align-items: center; gap: 2px;
+      border-radius: 20px;
+      border: 1px solid rgba(233, 220, 192, 0.45);
+      background: rgba(0, 20, 70, 0.35);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: rgba(233, 220, 192, 0.5);
+      font: 12px/1 Georgia, serif;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+    }
+    .lang:hover { background: rgba(0, 28, 95, 0.6); }
+    .lang span { padding: 4px 5px; border-radius: 10px; transition: color .2s ease, background .2s ease; }
+    .lang[data-lang="ko"] span[lang="ko"], .lang[data-lang="en"] span[lang="en"] { color: #0b2a6a; background: var(--cream); }
+    /* 좁은 화면: 멤버 배지와 겹치지 않게 음악 버튼 아래로 */
+    @media (max-width: 640px) {
+      .lang { top: calc(max(14px, env(safe-area-inset-top)) + 48px); right: max(14px, env(safe-area-inset-right)); height: 32px; padding: 0 6px; font-size: 11px; }
+    }
 
     /* ── 트리 근처 안내 버튼 ── */
     .nearby {
@@ -683,7 +709,7 @@
 </head>
 <body>
   <main class="stage">
-    <canvas class="scene" aria-label="달밤의 눈 덮인 숲길을 목도리와 털모자를 쓴 캐릭터가 걷는 3D 장면"></canvas>
+    <canvas class="scene" data-i18n-attr="aria-label=scene"></canvas>
     <canvas class="snow snow--back" aria-hidden="true"></canvas>
 
     <div class="drop">
@@ -696,30 +722,31 @@
 
     <canvas class="snow snow--front" aria-hidden="true"></canvas>
 
-    <p class="hint hint--intro">♪ tap to hear the bells</p>
-    <p class="hint hint--walk"><span class="keys">WASD / ← ↑ → ↓ to walk · drag to look around · R to roll a snowball · F to throw</span><span class="touch">drag left side to walk · right side to look</span></p>
-    <button class="roll throw" type="button" aria-label="눈 던지기 (F)" title="눈 던지기 (F)">❄</button>
-    <button class="roll" type="button" aria-pressed="false" aria-label="눈 굴리기 (R)" title="눈 굴리기 (R)">☃</button>
+    <p class="hint hint--intro" data-i18n="hint.intro">♪ tap to hear the bells</p>
+    <p class="hint hint--walk"><span class="keys" data-i18n="hint.keys">WASD / ← ↑ → ↓ to walk · drag to look around · R to roll a snowball · F to throw</span><span class="touch" data-i18n="hint.touch">drag left side to walk · right side to look</span></p>
+    <button class="roll throw" type="button" data-i18n-attr="aria-label=btn.throw, title=btn.throw">❄</button>
+    <button class="roll" type="button" aria-pressed="false" data-i18n-attr="aria-label=btn.roll, title=btn.roll">☃</button>
 
-    <button class="music" type="button" aria-pressed="true" aria-label="음악 켜기/끄기 (M)" title="음악 켜기/끄기 (M)">♪</button>
+    <button class="music" type="button" aria-pressed="true" data-i18n-attr="aria-label=btn.music, title=btn.music">♪</button>
+    <button class="lang" type="button" data-i18n-attr="aria-label=btn.lang, title=btn.lang"><span lang="ko">KO</span><span lang="en">EN</span></button>
     <p class="member" aria-live="polite"></p>
     <p class="welcome" aria-hidden="true"></p>
-    <button class="nearby" type="button">✦ Friends 트리에 카드 쓰기<kbd>E</kbd></button>
+    <button class="nearby" type="button">✦ Friends<kbd>E</kbd></button>
 
-    <div class="letter-modal" hidden data-mode="write" data-side="front" role="dialog" aria-modal="true" aria-label="편지 카드">
+    <div class="letter-modal" hidden data-mode="write" data-side="front" role="dialog" aria-modal="true" data-i18n-attr="aria-label=letter">
       <div class="letter-modal__backdrop"></div>
-      <button class="letter-modal__close js-close" type="button" aria-label="닫기">×</button>
+      <button class="letter-modal__close js-close" type="button" data-i18n-attr="aria-label=close">×</button>
       <div class="letter">
         <div class="letter__inner">
-          <section class="letter__face letter__face--front" aria-label="카드 앞면">
+          <section class="letter__face letter__face--front" data-i18n-attr="aria-label=card.front">
             <img class="letter__photo" src="assets/friends.webp" alt="" />
             <p class="letter__tag"><span class="js-tree">Friends</span> · <span class="js-cat"></span></p>
             <p class="letter__q"></p>
-            <p class="letter__flip-hint">↻ 눌러서 뒤집기</p>
+            <p class="letter__flip-hint" data-i18n="flipHint">↻ 눌러서 뒤집기</p>
           </section>
-          <section class="letter__face letter__face--back" aria-label="카드 뒷면">
+          <section class="letter__face letter__face--back" data-i18n-attr="aria-label=card.back">
             <p class="letter__q-small"></p>
-            <textarea class="letter__answer" rows="6" placeholder="여기에 답을 적어 주세요" aria-label="답변"></textarea>
+            <textarea class="letter__answer" rows="6" data-i18n-attr="placeholder=answer.placeholder, aria-label=answer"></textarea>
             <div class="letter__answer-view" hidden></div>
             <p class="letter__from"></p>
             <p class="letter__date"></p>
@@ -728,19 +755,19 @@
         </div>
       </div>
       <div class="letter-actions">
-        <button class="js-reroll" type="button">↻ 다른 질문</button>
-        <button class="js-to-back is-primary" type="button">뒤집어서 답하기</button>
-        <button class="js-to-front" type="button">← 앞면</button>
-        <button class="js-hang is-primary" type="button" disabled>✦ 트리에 달기</button>
-        <button class="js-flip" type="button">↻ 뒤집기</button>
-        <button class="js-remove" type="button">떼어내기</button>
+        <button class="js-reroll" type="button" data-i18n="act.reroll">↻ 다른 질문</button>
+        <button class="js-to-back is-primary" type="button" data-i18n="act.toBack">뒤집어서 답하기</button>
+        <button class="js-to-front" type="button" data-i18n="act.toFront">← 앞면</button>
+        <button class="js-hang is-primary" type="button" disabled data-i18n="act.hang">✦ 트리에 달기</button>
+        <button class="js-flip" type="button" data-i18n="act.flip">↻ 뒤집기</button>
+        <button class="js-remove" type="button" data-i18n="act.remove">떼어내기</button>
         <button class="js-others" type="button" hidden>💬 같은 질문의 답</button>
       </div>
-      <div class="answers" hidden role="dialog" aria-label="같은 질문에 대한 다른 답">
+      <div class="answers" hidden role="dialog" data-i18n-attr="aria-label=answers">
         <div class="answers__box">
           <p class="answers__q"></p>
           <ul class="answers__list"></ul>
-          <button class="answers__close" type="button">닫기</button>
+          <button class="answers__close" type="button" data-i18n="close">닫기</button>
         </div>
       </div>
     </div>
@@ -759,6 +786,7 @@
       }
     }
   </script>
+  <script type="module" src="js/i18n.js"></script>
   <script type="module" src="js/walk3d.js"></script>
 </body>
 </html>

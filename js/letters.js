@@ -4,6 +4,8 @@
    - 저장은 club.js(공유 서버)가 맡고, 여기서는 화면만 다룸 */
 import { memberName, getMe, isMine, fetchCards } from './club.js';
 import { cardStyle, cardImages, CARD_STYLES } from './cards.js';
+import { t, getLang } from './i18n.js';
+import { QUESTIONS_EN } from './questions-en.js';
 
 // 카드 앞뒤 그림은 만드는 데 시간이 조금 걸려서, 페이지가 한가할 때 미리 준비
 const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
@@ -248,6 +250,18 @@ export const QUESTIONS = {
 };
 
 export const PHOTOS = { Friends: 'assets/friends.webp' };
+
+// 카드에는 한국어 원문(분류·질문)을 저장하고, 영어로 볼 때만 바꿔 보여 줌
+const EN = new Map();
+for (const [treeName, groups] of Object.entries(QUESTIONS)) {
+  groups.forEach((g, i) => {
+    const [cat, items] = QUESTIONS_EN[treeName]?.[i] || [];
+    if (cat) EN.set(g.category, cat);
+    g.items.forEach((q, j) => { if (items?.[j]) EN.set(q, items[j]); });
+  });
+}
+/** 질문·분류 글자를 지금 언어로 (모르는 글은 그대로) */
+export const tr = (text) => (getLang() === 'en' ? EN.get(text) ?? text : text);
 const MAX_LEN = 300;
 
 function randomQuestion(tree, except) {
@@ -305,9 +319,9 @@ function setSide(back) {
 
 function fill(card) {
   tagTree.textContent = tree;
-  tagCat.textContent = card.category;
-  qFront.textContent = card.question;
-  qBack.textContent = card.question;
+  tagCat.textContent = tr(card.category);
+  qFront.textContent = tr(card.question);
+  qBack.textContent = tr(card.question);
   photo.hidden = !PHOTOS[tree];
   if (PHOTOS[tree]) photo.src = PHOTOS[tree];
   applyStyle(tree);
@@ -317,25 +331,25 @@ function fill(card) {
 /* 같은 질문에 다른 사람들이 쓴 답 — 트리에 걸린 카드 중 질문이 같은 것 */
 let others = [];
 async function loadOthers() {
-  const q = current?.question, t = tree, self = mode === 'view' ? current?.id : null;
+  const q = current?.question, tn = tree, self = mode === 'view' ? current?.id : null;
   others = [];
   btn.others.hidden = true;
-  const cards = (await fetchCards(t)) || [];
-  if (current?.question !== q || tree !== t) return;         // 그 사이 질문이 바뀌었으면 버림
+  const cards = (await fetchCards(tn)) || [];
+  if (current?.question !== q || tree !== tn) return;         // 그 사이 질문이 바뀌었으면 버림
   others = cards.filter((c) => c.question === q && c.id !== self)
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  btn.others.textContent = `💬 같은 질문의 답 ${others.length}`;
+  btn.others.textContent = t('act.othersN', { n: others.length });
   btn.others.hidden = others.length === 0;
 }
 function showOthers() {
-  answersQ.textContent = current.question;
+  answersQ.textContent = tr(current.question);
   answersList.replaceChildren(...others.map((c) => {
     const li = document.createElement('li');
     const p = document.createElement('p');
     p.textContent = c.answer;                                  // 글자 그대로 (HTML로 해석하지 않음)
     const small = document.createElement('small');
     const d = new Date(c.createdAt);
-    small.textContent = `From. ${memberName(c.member)}${isMine(c) ? ' (나)' : ''}${isNaN(d) ? '' : ` · ${d.getMonth() + 1}. ${d.getDate()}.`}`;
+    small.textContent = `From. ${memberName(c.member)}${isMine(c) ? t('me') : ''}${isNaN(d) ? '' : ` · ${d.getMonth() + 1}. ${d.getDate()}.`}`;
     li.append(p, small);
     return li;
   }));
@@ -448,7 +462,7 @@ btn.hang.addEventListener('click', async () => {
     await onHang(draft);                          // 저장이 끝나야 날려 보냄
   } catch {
     btn.hang.disabled = false;
-    alert('카드를 걸지 못했어요. 잠시 후 다시 시도해 주세요.');
+    alert(t('err.hang'));
     return;
   }
   delete drafts[tree];
@@ -464,10 +478,19 @@ btn.hang.addEventListener('click', async () => {
 });
 
 btn.remove.addEventListener('click', async () => {
-  if (!current || !confirm('이 카드를 트리에서 떼어낼까요?')) return;
+  if (!current || !confirm(t('confirm.remove'))) return;
   const removed = current;
-  try { await onRemove(removed); } catch { alert('카드를 떼지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+  try { await onRemove(removed); } catch { alert(t('err.remove')); return; }
   close();
+});
+
+// 언어를 바꾸면 열려 있는 카드 글자도 바로 바꿈
+document.addEventListener('lang:change', () => {
+  if (!isOpen() || !current) return;
+  tagCat.textContent = tr(current.category);
+  qFront.textContent = qBack.textContent = tr(current.question);
+  if (!answersEl.hidden) showOthers();
+  if (!btn.others.hidden) btn.others.textContent = t('act.othersN', { n: others.length });
 });
 
 addEventListener('keydown', (e) => {

@@ -9,6 +9,7 @@ import * as letters from './letters.js';
 import * as club from './club.js';
 import { cardImages } from './cards.js';
 import { crossStitch } from './stitch.js';
+import { t as say } from './i18n.js';
 import { connect as connectPresence, myId as myPresenceId } from './presence.js';
 
 const canvas = document.querySelector('.scene');
@@ -1795,7 +1796,7 @@ async function ornamentTextures(card) {
         g.font = 'italic 16px Georgia, serif';
         g.fillText(card.tree, W * 0.66, H * 0.17);
         g.font = '10px ChosunIlboMyungjo, serif';
-        g.fillText(card.category, W * 0.66, H * 0.22);
+        g.fillText(letters.tr(card.category), W * 0.66, H * 0.22);
         g.fillStyle = '#5b2a24';
         g.font = '14px ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.48, 6);
@@ -1808,7 +1809,7 @@ async function ornamentTextures(card) {
         g.font = 'italic 15px Georgia, serif';
         g.fillText(card.tree, W / 2, H * 0.28);
         g.font = '10px ChosunIlboMyungjo, serif';
-        g.fillText(card.category, W / 2, H * 0.34);
+        g.fillText(letters.tr(card.category), W / 2, H * 0.34);
         g.fillStyle = '#5b2a24';
         g.font = '13px ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.56, 4);
@@ -1822,7 +1823,7 @@ async function ornamentTextures(card) {
         g.font = 'italic 16px Georgia, serif';
         g.fillText(card.tree, W / 2, H * 0.15);
         g.font = '11px ChosunIlboMyungjo, serif';
-        g.fillText(card.category, W / 2, H * 0.21);
+        g.fillText(letters.tr(card.category), W / 2, H * 0.21);
         g.fillStyle = '#5b2a24';
         g.font = '14px ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.62, 4);
@@ -1835,7 +1836,7 @@ async function ornamentTextures(card) {
         g.font = 'italic 16px Georgia, serif';
         g.fillText(card.tree, W / 2, H * 0.31);
         g.font = '11px ChosunIlboMyungjo, serif';
-        g.fillText(card.category, W / 2, H * 0.4);
+        g.fillText(letters.tr(card.category), W / 2, H * 0.4);
         g.fillStyle = '#5b2a24';
         g.font = '14px ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.56, 4);
@@ -1847,7 +1848,7 @@ async function ornamentTextures(card) {
         g.font = 'italic 17px Georgia, serif';
         g.fillText(card.tree, W / 2, H * 0.2);
         g.font = '13px ChosunIlboMyungjo, serif';
-        g.fillText(card.category, W / 2, H * 0.27);
+        g.fillText(letters.tr(card.category), W / 2, H * 0.27);
         g.fillStyle = '#5b2a24';
         g.font = '15px ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.66, 5);
@@ -1906,6 +1907,21 @@ function cardLight(card) {
   for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return new THREE.Color(CARD_LIGHTS[h % CARD_LIGHTS.length]);
 }
+
+// 언어를 바꾸면 트리에 걸린 카드의 분류 글자도 다시 그림
+document.addEventListener('lang:change', () => {
+  for (const o of ornaments) {
+    ornamentTextures(o.card).then(([front, back]) => {
+      o.meshes.forEach((m, i) => {
+        const tex = i ? back : front;
+        m.material.map?.dispose();
+        m.material.map = tex;
+        m.material.emissiveMap = tex;
+        m.material.needsUpdate = true;
+      });
+    });
+  }
+});
 
 async function addOrnament(info, card, slotIndex, animate) {
   const [front, back, im] = await ornamentTextures(card);
@@ -2614,10 +2630,10 @@ function update(dt, t) {
       if (writableTree(b.name) && Math.hypot(state.pos.x - b.x, state.pos.z - b.z) < 7.5) { nearTree = b; break; }
     }
   }
-  const label = state.seat ? '🔥 일어나기'
-    : atDoor ? (house.door.open ? '🚪 문 닫기' : '🚪 문 열기')
-    : nearSeat ? '🔥 의자에 앉아 불 쬐기'
-    : nearTree ? `✦ ${nearTree.name} 트리에 카드 쓰기` : null;
+  const label = state.seat ? say('near.stand')
+    : atDoor ? say(house.door.open ? 'near.doorClose' : 'near.doorOpen')
+    : nearSeat ? say('near.sit')
+    : nearTree ? say('near.write', { tree: nearTree.name }) : null;
   nearbyBtn.classList.toggle('is-on', !!label);
   if (label && nearbyLabel.textContent !== label) nearbyLabel.textContent = label;
   if (!reduce) snow.update(dt, t, camTarget.x, camTarget.z);
@@ -2682,7 +2698,7 @@ const joined = club.join().then(async (me) => {
   nameTag.set(club.memberName(me.no));
   dressHero(hero, me.no);
   presence.start(me.no);
-  memberEl.title = club.isOnline() ? '' : '서버 없이 열려 이 브라우저에만 저장돼요';
+  memberEl.title = club.isOnline() ? '' : say('offline');
   await syncAll(false);
   if (club.isOnline()) setInterval(() => { if (!document.hidden) syncAll(true); }, 8000);
   return me;
@@ -2694,8 +2710,8 @@ document.addEventListener('scene:start', () => {
     memberEl.classList.add('is-on');
     const ny = newYearCountdown();
     const dday = ny.days ? `D-${ny.days}` : `Happy New Year`;
-    const note = ny.days ? `${ny.year}년 새해까지 ${ny.days}일 남았어요` : `${ny.year}년, 새해 복 많이 받으세요`;
-    welcomeEl.innerHTML = `<span class="welcome__dday" role="img" aria-label="${dday}"></span>Welcome, ${club.memberName(me.no)}<small>${note}</small>`;
+    const note = ny.days ? say('dday.note', { year: ny.year, days: ny.days }) : say('newyear.note', { year: ny.year });
+    welcomeEl.innerHTML = `<span class="welcome__dday" role="img" aria-label="${dday}"></span>${say('welcome', { name: club.memberName(me.no) })}<small>${note}</small>`;
     try { welcomeEl.querySelector('.welcome__dday').append(await crossStitch(dday)); }
     catch { welcomeEl.querySelector('.welcome__dday').textContent = dday; }
     welcomeEl.classList.add('is-on');

@@ -8,6 +8,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as letters from './letters.js';
 import * as club from './club.js';
 import { cardImages } from './cards.js';
+import { connect as connectPresence, myId as myPresenceId } from './presence.js';
 
 const canvas = document.querySelector('.scene');
 const hint = document.querySelector('.hint--walk');
@@ -1374,7 +1375,8 @@ function stripeTexture() {
   return t;
 }
 
-const hero = (() => {
+// 캐릭터 모델 (나와 다른 접속자가 같이 씀) — 모자·코트 색은 멤버 번호마다 다르게
+function makeHero() {
   const root = new THREE.Group();     // 발 위치
   const body = new THREE.Group();     // 통통 튀는 몸
   root.add(body);
@@ -1476,8 +1478,161 @@ const hero = (() => {
 
   root.traverse((o) => { if (o.isMesh) o.receiveShadow = false; });
   scene.add(root);
-  return { root, body, legs, arms, head, eyes, pom, tailSegs };
+  return { root, body, legs, arms, head, eyes, pom, tailSegs, coatM, redM };
+}
+const hero = makeHero();
+
+// 멤버 번호마다 정해지는 모자(장갑)·코트 색 — 접속자끼리 구분되게
+const OUTFITS = [
+  [0xc8323a, 0x2f6b4f], [0x2f6fd8, 0x7a2b35], [0xe0a020, 0x2c3e66], [0x8a4fd0, 0xa0784a],
+  [0xff6fa8, 0x7a808c], [0x20b5a3, 0x5a2a4a], [0x46b04a, 0x8b3a2b], [0xf2f2f2, 0x26262e],
+];
+function dressHero(h, no) {
+  const [hat, coat] = OUTFITS[((Number(no) || 1) - 1) % OUTFITS.length];
+  h.redM.color.setHex(hat);
+  h.coatM.color.setHex(coat);
+}
+
+// 걷기·앉기 자세 (나와 다른 접속자 공통)
+function poseHero(h, phase, speedF, t, sitK) {
+  const { body, legs, arms, head, pom, tailSegs } = h;
+  const sw = Math.sin(phase);
+  body.position.y = Math.abs(sw) * 0.06 * speedF + Math.sin(t * 2.2) * 0.008 * (1 - speedF);
+  body.rotation.x = 0.1 * speedF;
+  body.rotation.z = sw * 0.04 * speedF;
+  legs[0].rotation.x = sw * 0.75 * speedF;
+  legs[1].rotation.x = -sw * 0.75 * speedF;
+  arms[0].rotation.x = -sw * 0.65 * speedF;
+  arms[1].rotation.x = sw * 0.65 * speedF;
+  head.rotation.z = Math.sin(t * 1.3) * 0.03 * (1 - speedF);
+  head.rotation.x = -0.05 * speedF;
+  pom.position.z = -0.04 * speedF + Math.sin(t * 6) * 0.01;
+  pom.position.y = 0.36 - Math.abs(sw) * 0.02 * speedF;
+  // 의자에 앉은 자세: 엉덩이를 의자 위에, 다리는 앞으로, 두 손은 불 쪽으로 쬐기
+  if (sitK > 0.001) {
+    const mix = (a, b) => a + (b - a) * sitK;
+    body.position.y = mix(body.position.y, 0.13);
+    body.rotation.x = mix(body.rotation.x, -0.06);
+    for (const l of legs) l.rotation.x = mix(l.rotation.x, -1.25);
+    arms.forEach((a, i) => { a.rotation.x = mix(a.rotation.x, -1.0 + Math.sin(t * 1.6 + i) * 0.05); });
+    head.rotation.x = mix(head.rotation.x, 0.08);
+  }
+  tailSegs.forEach((seg, i) => {
+    seg.rotation.x = -(0.15 + 0.55 * speedF) * (i === 0 ? 1 : 0.35) + Math.sin(t * 7 - i * 0.9) * (0.08 + 0.18 * speedF);
+    seg.rotation.z = Math.sin(t * 3 - i) * 0.08;
+  });
+}
+
+/* 캐릭터 머리 위 이름표: 멤버 번호(Club Member 03) — 접속자가 여럿이라 번호로 구분 */
+function makeNameTag(root) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 128;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
+  s.renderOrder = 10;                                      // 나무 뒤에 있어도 이름은 보이게
+  s.raycast = () => {};
+  const top = new THREE.Box3().setFromObject(root).max.y - root.position.y;
+  s.position.y = top + 0.32;
+  root.add(s);
+  return {
+    set(text) {
+      const g = c.getContext('2d');
+      g.clearRect(0, 0, c.width, c.height);
+      g.font = 'italic 46px Georgia, "Times New Roman", serif';
+      const w = Math.min(c.width - 8, g.measureText(text).width + 56);
+      const x = (c.width - w) / 2, y = 30, h = 68;
+      g.fillStyle = 'rgba(0, 20, 70, 0.55)';
+      g.strokeStyle = 'rgba(255, 220, 160, 0.6)';
+      g.lineWidth = 3;
+      g.beginPath(); g.roundRect(x, y, w, h, h / 2); g.fill(); g.stroke();
+      g.fillStyle = '#fff3dc';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(text, c.width / 2, y + h / 2 + 2, c.width - 40);
+      tex.needsUpdate = true;
+      s.scale.set(2.3, 0.575, 1);
+    },
+  };
+}
+
+/* ───────── 다른 접속자 ─────────
+   걸을 때만 0.3초마다 위치를 보내고, 멈춰 있으면 3초마다 '나 여기 있어'만 보냄
+   받은 위치로 부드럽게 따라가며 걷는 자세를 만들고, 10초 동안 소식이 없으면 사라짐 */
+const presence = (() => {
+  let sendFn = null, no = null, lastSent = 0, lastMsg = null, force = false;
+  return {
+    async start(memberNo) {
+      no = memberNo;
+      sendFn = await connectPresence({
+        no,
+        onPos: (m) => receiveOther(m),
+        onLeave: (id) => removeOther(id),
+        onJoin: () => { force = true; },              // 새로 들어온 사람에게 내 위치를 바로 알려 줌
+      });
+    },
+    send(state) {
+      if (!sendFn || document.hidden) return;
+      const now = performance.now();
+      const m = {
+        id: myPresenceId, no,
+        x: +state.pos.x.toFixed(2), y: +state.pos.y.toFixed(2), z: +state.pos.z.toFixed(2),
+        yaw: +state.yaw.toFixed(2), sit: state.seat ? 1 : 0,
+      };
+      const changed = !lastMsg || Math.hypot(m.x - lastMsg.x, m.z - lastMsg.z) > 0.03
+        || Math.abs(m.yaw - lastMsg.yaw) > 0.05 || m.sit !== lastMsg.sit || Math.abs(m.y - lastMsg.y) > 0.03;
+      const due = force || (changed ? now - lastSent > 300 : now - lastSent > 3000);
+      if (!due) return;
+      sendFn(m);
+      lastSent = now; lastMsg = m; force = false;
+    },
+  };
 })();
+
+const others = new Map();     // 접속 id → { h, tag, target, yaw, phase, sitK, seen }
+function receiveOther(m) {
+  if (typeof m.x !== 'number' || typeof m.z !== 'number') return;
+  let o = others.get(m.id);
+  if (!o) {
+    const h = makeHero();
+    dressHero(h, m.no);
+    const tag = makeNameTag(h.root);
+    tag.set(club.memberName(m.no));
+    h.root.position.set(m.x, m.y || 0, m.z);
+    o = { h, tag, no: m.no, yaw: m.yaw || 0, phase: 0, sitK: m.sit ? 1 : 0, target: new THREE.Vector3(), seen: 0 };
+    others.set(m.id, o);
+  }
+  o.target.set(m.x, m.y || 0, m.z);
+  o.targetYaw = m.yaw || 0;
+  o.sit = m.sit ? 1 : 0;
+  o.seen = clock.elapsedTime;
+}
+function removeOther(id) {
+  const o = others.get(id);
+  if (!o) return;
+  scene.remove(o.h.root);
+  o.h.root.traverse((x) => {
+    if (x.geometry) x.geometry.dispose();
+    if (x.material) { x.material.map?.dispose?.(); x.material.dispose(); }
+  });
+  others.delete(id);
+}
+function updateOthers(dt, t) {
+  for (const [id, o] of others) {
+    if (t - o.seen > 10) { removeOther(id); continue; }
+    const p = o.h.root.position;
+    const before = p.clone();
+    const far = p.distanceTo(o.target) > 6;              // 순간이동(문 통과 등)은 바로 옮김
+    if (far) p.copy(o.target); else p.lerp(o.target, Math.min(1, dt * 7));
+    const speed = far || dt <= 0 ? 0 : Math.hypot(p.x - before.x, p.z - before.z) / dt;
+    const speedF = Math.min(1, speed / SPEED);
+    o.yaw = lerpAngle(o.yaw, o.targetYaw, Math.min(1, dt * 8));
+    o.h.root.rotation.y = o.yaw;
+    o.phase += speed * dt * 2.9;
+    if (speedF < 0.05) o.phase += (Math.round(o.phase / Math.PI) * Math.PI - o.phase) * Math.min(1, dt * 8);
+    o.sitK += (o.sit - o.sitK) * Math.min(1, dt * 5);
+    poseHero(o.h, o.phase, speedF, t, o.sitK);
+  }
+}
 
 /* ───────── 발자국 ───────── */
 const PRINTS = 320;
@@ -2131,35 +2286,14 @@ function update(dt, t) {
   }
 
   // 캐릭터 포즈
-  const { root, body, legs, arms, head, eyes, pom, tailSegs } = hero;
-  root.position.copy(state.pos);
-  root.rotation.y = state.yaw;
-  const sw = Math.sin(state.phase);
-  body.position.y = Math.abs(sw) * 0.06 * speedF + Math.sin(t * 2.2) * 0.008 * (1 - speedF);
-  body.rotation.x = 0.1 * speedF;
-  body.rotation.z = sw * 0.04 * speedF;
-  legs[0].rotation.x = sw * 0.75 * speedF;
-  legs[1].rotation.x = -sw * 0.75 * speedF;
-  arms[0].rotation.x = -sw * 0.65 * speedF;
-  arms[1].rotation.x = sw * 0.65 * speedF;
-  head.rotation.z = Math.sin(t * 1.3) * 0.03 * (1 - speedF);
-  head.rotation.x = -0.05 * speedF;
-  pom.position.z = -0.04 * speedF + Math.sin(t * 6) * 0.01;
-  pom.position.y = 0.36 - Math.abs(sw) * 0.02 * speedF;
-  // 의자에 앉은 자세: 엉덩이를 의자 위에, 다리는 앞으로, 두 손은 불 쪽으로 쬐기
-  const sk = state.sitK;
-  if (sk > 0.001) {
-    const mix = (a, b) => a + (b - a) * sk;
-    body.position.y = mix(body.position.y, 0.13);
-    body.rotation.x = mix(body.rotation.x, -0.06);
-    for (const l of legs) l.rotation.x = mix(l.rotation.x, -1.25);
-    arms.forEach((a, i) => { a.rotation.x = mix(a.rotation.x, -1.0 + Math.sin(t * 1.6 + i) * 0.05); });
-    head.rotation.x = mix(head.rotation.x, 0.08);
-  }
-  tailSegs.forEach((seg, i) => {
-    seg.rotation.x = -(0.15 + 0.55 * speedF) * (i === 0 ? 1 : 0.35) + Math.sin(t * 7 - i * 0.9) * (0.08 + 0.18 * speedF);
-    seg.rotation.z = Math.sin(t * 3 - i) * 0.08;
-  });
+  const { body, eyes } = hero;
+  hero.root.position.copy(state.pos);
+  hero.root.rotation.y = state.yaw;
+  poseHero(hero, state.phase, speedF, t, state.sitK);
+
+  // 다른 접속자: 내 위치를 보내고, 다른 사람들을 받은 위치로 부드럽게 움직임
+  presence.send(state);
+  updateOthers(dt, t);
 
   // 깜빡임
   state.nextBlink -= dt;
@@ -2288,40 +2422,12 @@ requestAnimationFrame(frame);
 /* ───────── 클럽 입장: 멤버 번호 받기 → 트리 카드 불러오기 ───────── */
 const memberEl = document.querySelector('.member');
 const welcomeEl = document.querySelector('.welcome');
-/* 캐릭터 머리 위 이름표: 멤버 번호(Club Member 03) — 접속자가 여럿이라 번호로 구분 */
-const nameTag = (() => {
-  const c = document.createElement('canvas');
-  c.width = 512; c.height = 128;
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
-  s.renderOrder = 10;                                      // 나무 뒤에 있어도 이름은 보이게
-  s.raycast = () => {};
-  const top = new THREE.Box3().setFromObject(hero.root).max.y - hero.root.position.y;
-  s.position.y = top + 0.32;
-  hero.root.add(s);
-  return {
-    set(text) {
-      const g = c.getContext('2d');
-      g.clearRect(0, 0, c.width, c.height);
-      g.font = 'italic 46px Georgia, "Times New Roman", serif';
-      const w = Math.min(c.width - 8, g.measureText(text).width + 56);
-      const x = (c.width - w) / 2, y = 30, h = 68;
-      g.fillStyle = 'rgba(0, 20, 70, 0.55)';
-      g.strokeStyle = 'rgba(255, 220, 160, 0.6)';
-      g.lineWidth = 3;
-      g.beginPath(); g.roundRect(x, y, w, h, h / 2); g.fill(); g.stroke();
-      g.fillStyle = '#fff3dc';
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(text, c.width / 2, y + h / 2 + 2, c.width - 40);
-      tex.needsUpdate = true;
-      s.scale.set(2.3, 0.575, 1);
-    },
-  };
-})();
+const nameTag = makeNameTag(hero.root);
 const joined = club.join().then(async (me) => {
   memberEl.innerHTML = `December Club · <b>${club.memberName(me.no)}</b>`;
   nameTag.set(club.memberName(me.no));
+  dressHero(hero, me.no);
+  presence.start(me.no);
   memberEl.title = club.isOnline() ? '' : '서버 없이 열려 이 브라우저에만 저장돼요';
   await syncAll(false);
   if (club.isOnline()) setInterval(() => { if (!document.hidden) syncAll(true); }, 8000);

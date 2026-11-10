@@ -28,7 +28,8 @@ async function sb(path, body) {
     method: body ? 'POST' : 'GET',
     headers: {
       apikey: SUPABASE.anonKey,
-      Authorization: `Bearer ${SUPABASE.anonKey}`,
+      // 예전 방식 anon 키(eyJ…)만 Authorization 에도 넣음 — 새 방식(sb_publishable_…)은 apikey 만
+      ...(SUPABASE.anonKey.startsWith('eyJ') ? { Authorization: `Bearer ${SUPABASE.anonKey}` } : {}),
       ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,

@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as letters from './letters.js';
 import * as club from './club.js';
+import { cardImages } from './cards.js';
 
 const canvas = document.querySelector('.scene');
 const hint = document.querySelector('.hint--walk');
@@ -154,12 +155,27 @@ const START_T = 0.02;
 const START_P = pathCurve.getPointAt(START_T);
 const HOUSE_ROT = Math.atan2(START_P.x, START_P.z);      // 집 정면(+z)이 출발점을 향하도록
 const HOUSE_FRONT = new THREE.Vector3(Math.sin(HOUSE_ROT), 0, Math.cos(HOUSE_ROT));
-const SPUR = [];
-{
-  const door = HOUSE_FRONT.clone().multiplyScalar(4.6);
-  const n = Math.ceil(START_P.distanceTo(door) / 0.5);
-  for (let i = 0; i <= n; i++) SPUR.push(new THREE.Vector3().lerpVectors(door, START_P, i / n));
-}
+// 트리 마당: 집 앞에 둥근 마당이 있고, 다섯 트리가 그 마당을 빙 둘러섬 (마당 중심 기준)
+//   각도는 마당 중심에서 본 방향 — 0° 는 출발점 쪽, 180° 는 집 쪽
+const PLAZA = { CENTER: 13.5, RING: 7, TREE_R: 11.5, ANGLES: [-110, -50, 0, 50, 110], ENTRY: 25 };
+const HOUSE_SIDE = new THREE.Vector3(HOUSE_FRONT.z, 0, -HOUSE_FRONT.x);
+const YARD = HOUSE_FRONT.clone().multiplyScalar(PLAZA.CENTER);
+const yardAt = (deg, r) => {
+  const a = THREE.MathUtils.degToRad(deg);
+  return YARD.clone().addScaledVector(HOUSE_FRONT, Math.cos(a) * r).addScaledVector(HOUSE_SIDE, Math.sin(a) * r);
+};
+const line = (a, b) => {
+  const out = [], n = Math.ceil(a.distanceTo(b) / 0.5);
+  for (let i = 0; i <= n; i++) out.push(new THREE.Vector3().lerpVectors(a, b, i / n));
+  return out;
+};
+// 현관 → 마당,  마당 → (트리 사이로 비스듬히) → 출발점
+const SPUR_IN = line(HOUSE_FRONT.clone().multiplyScalar(4.6), yardAt(180, PLAZA.RING));
+const SPUR_OUT = (() => {
+  const c = new THREE.CatmullRomCurve3([yardAt(PLAZA.ENTRY, PLAZA.RING), yardAt(PLAZA.ENTRY + 3, PLAZA.TREE_R + 2.5), START_P]);
+  return c.getSpacedPoints(Math.ceil(c.getLength() / 0.5));
+})();
+const SPUR = [...SPUR_IN, ...SPUR_OUT];
 const PATH_SAMPLES = [...LOOP, ...SPUR];
 
 function distToPath(x, z) {
@@ -235,7 +251,7 @@ function ribbon(points, closed, width) {
     polygonOffset: true, polygonOffsetFactor: -2,
   });
   pathMat = mat;
-  for (const geo of [ribbon(LOOP, true, 2.6), ribbon(SPUR, false, 2.0)]) {
+  for (const geo of [ribbon(LOOP, true, 2.6), ribbon(SPUR_OUT, false, 2.0), ribbon(SPUR_IN, false, 2.0)]) {
     const path = new THREE.Mesh(geo, mat);
     path.receiveShadow = true;
     scene.add(path);
@@ -343,36 +359,20 @@ let makeLamp;
   }
 }
 
-/* ───────── 트리 마을 광장: 집을 둘러싼 둥근 길, 트리로 가는 오솔길, 가로등, 눈사람 ───────── */
-const PLAZA = { RING: 11, TREE_R: 19 };
+/* ───────── 트리 마을 광장: 집 앞 둥근 마당, 트리로 가는 오솔길, 가로등, 눈사람 ───────── */
 {
-  const front = Math.atan2(HOUSE_FRONT.z, HOUSE_FRONT.x);
   const mat = pathMat;
-  const ringPts = [];
-  for (let i = 0; i < 120; i++) {
-    const a = (i / 120) * Math.PI * 2;
-    ringPts.push(new THREE.Vector3(Math.cos(a) * PLAZA.RING, 0, Math.sin(a) * PLAZA.RING));
-  }
-  const ring = new THREE.Mesh(ribbon(ringPts, true, 2.2), mat);
-  ring.receiveShadow = true;
-  scene.add(ring);
+  const add = (pts, closed, w) => { const m = new THREE.Mesh(ribbon(pts, closed, w), mat); m.receiveShadow = true; scene.add(m); };
+  // 마당을 도는 둥근 길
+  const ring = [];
+  for (let i = 0; i < 120; i++) ring.push(yardAt((i / 120) * 360, PLAZA.RING));
+  add(ring, true, 2.2);
   // 다섯 트리로 이어지는 오솔길
-  for (let k = 0; k < 5; k++) {
-    const a = front + Math.PI / 5 + k * (Math.PI * 2 / 5);
-    const pts = [];
-    for (let r = PLAZA.RING; r <= PLAZA.TREE_R - 2.2; r += 0.5) pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
-    const spoke = new THREE.Mesh(ribbon(pts, false, 1.5), mat);
-    spoke.receiveShadow = true;
-    scene.add(spoke);
-  }
-  // 광장 가로등: 트리 사이사이 + 현관길 양옆
-  for (let k = 1; k < 5; k++) {
-    const a = front + k * (Math.PI * 2 / 5);
-    makeLamp(Math.cos(a) * (PLAZA.RING + 1.6), Math.sin(a) * (PLAZA.RING + 1.6), 7);
-  }
-  for (const s of [-1, 1]) {
-    const a = front + s * 0.2;
-    makeLamp(Math.cos(a) * (PLAZA.RING + 1.6), Math.sin(a) * (PLAZA.RING + 1.6), 7);
+  for (const deg of PLAZA.ANGLES) add(line(yardAt(deg, PLAZA.RING), yardAt(deg, PLAZA.TREE_R - 2.2)), false, 1.5);
+  // 가로등: 트리 사이사이 + 집 쪽 양옆
+  for (const deg of [-80, -25, 80, -150, 150]) {
+    const p = yardAt(deg, PLAZA.RING + 1.7);
+    makeLamp(p.x, p.z, 7);
   }
 
   // 눈사람
@@ -380,12 +380,11 @@ const PLAZA = { RING: 11, TREE_R: 19 };
   const coalM = new THREE.MeshLambertMaterial({ color: 0x1b1b22 });
   const carrotM = new THREE.MeshLambertMaterial({ color: 0xff8a2a });
   const scarfCols = [0xc8323a, 0x2f7d5b, 0x3b6bd1];
-  [1.5, 2.5, 3.5].forEach((k, i) => {
-    const a = front + k * (Math.PI * 2 / 5) + 0.25;
-    const x = Math.cos(a) * 15.5, z = Math.sin(a) * 15.5;
+  [[-140, 14], [140, 14], [-25, 15.5]].forEach(([deg, rr], i) => {
+    const { x, z } = yardAt(deg, rr);
     const sm = new THREE.Group();
     sm.position.set(x, 0, z);
-    sm.rotation.y = Math.atan2(-x, -z) + (i - 1) * 0.4;            // 광장 쪽을 바라봄
+    sm.rotation.y = Math.atan2(YARD.x - x, YARD.z - z) + (i - 1) * 0.4;   // 마당 쪽을 바라봄
     const ball = (r, y) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), snowM); m.position.y = y; m.castShadow = true; sm.add(m); return m; };
     ball(0.55, 0.45); ball(0.4, 1.15); ball(0.28, 1.68);
     for (const ex of [-0.1, 0.1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), coalM); e.position.set(ex, 1.74, 0.25); sm.add(e); }
@@ -404,6 +403,7 @@ const PLAZA = { RING: 11, TREE_R: 19 };
 }
 
 /* ───────── 출발점 표지판 ───────── */
+const signHearts = [];          // 표지판 하트 전구 { mat, glow, base, phase, size }
 {
   const p = pathCurve.getPointAt(START_T);
   const tan = pathCurve.getTangentAt(START_T);
@@ -437,6 +437,41 @@ const PLAZA = { RING: 11, TREE_R: 19 };
   const snowTop = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.07, 0.14), new THREE.MeshLambertMaterial({ color: COLORS.pineSnow }));
   snowTop.position.set(0, 1.72, 0.08);
   sign.add(post, board, snowTop);
+
+  // 하트 모양 꼬마전구: 표지판 둘레를 따라 빙 둘러 달고, 위쪽엔 큰 하트 하나
+  const heart = new THREE.Shape();
+  heart.moveTo(0, -0.5);
+  heart.bezierCurveTo(-0.15, -0.3, -0.62, -0.05, -0.55, 0.3);
+  heart.bezierCurveTo(-0.5, 0.58, -0.12, 0.62, 0, 0.32);
+  heart.bezierCurveTo(0.12, 0.62, 0.5, 0.58, 0.55, 0.3);
+  heart.bezierCurveTo(0.62, -0.05, 0.15, -0.3, 0, -0.5);
+  const heartGeo = new THREE.ShapeGeometry(heart, 10);
+  const HEART_COLS = [0xff4f7a, 0xffb3c8, 0xffe2a8];
+  const glowMat = (col) => new THREE.SpriteMaterial({ map: dotTex, color: col, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.7 });
+  const addHeart = (x, y, size, col, phase, z = 0.135) => {
+    const mat = new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide });
+    const m = new THREE.Mesh(heartGeo, mat);
+    m.position.set(x, y, z);
+    m.scale.setScalar(size);
+    const gl = new THREE.Sprite(glowMat(col));
+    gl.position.set(x, y, z + 0.02);
+    gl.scale.setScalar(size * 3.3);
+    sign.add(m, gl);
+    signHearts.push({ mat, glow: gl, base: new THREE.Color(col), phase, size });
+  };
+  const BW = 1.9 / 2 + 0.07, BH = 0.48 / 2 + 0.06, BY = 1.45;
+  const perim = [];
+  const NX = 11, NY = 3;
+  for (let i = 0; i <= NX; i++) perim.push([-BW + (i / NX) * BW * 2, BY + BH]);
+  for (let i = 1; i < NY; i++) perim.push([BW, BY + BH - (i / NY) * BH * 2]);
+  for (let i = NX; i >= 0; i--) perim.push([-BW + (i / NX) * BW * 2, BY - BH]);
+  for (let i = NY - 1; i >= 1; i--) perim.push([-BW, BY + BH - (i / NY) * BH * 2]);
+  perim.forEach(([x, y], i) => addHeart(x, y, 0.085, HEART_COLS[i % 3], -i * 0.55));
+  addHeart(0, BY + BH + 0.2, 0.34, 0xff3d6e, 0, 0.09);               // 표지판 위에 얹은 큰 하트
+  const heartLight = new THREE.PointLight(0xff8fb0, 4, 6, 1.4);
+  heartLight.position.set(0, 1.5, 0.8);
+  sign.add(heartLight);
+
   scene.add(sign);
   trees.push({ x: sign.position.x, z: sign.position.z, r: 0.3 });
 }
@@ -752,13 +787,66 @@ const houseBox = (lx, lz, hw, hd, rot = 0) => {
     house.door.box = { x, z, rot: HOUSE_ROT, hw: DW / 2, hd: T / 2, off: false };
     boxes.push(house.door.box);
   }
-  const wreath = part(new THREE.TorusGeometry(0.42, 0.13, 8, 22), lam(0x1f5a3a), 0, DH + 0.55, D / 2 + 0.06, frontW);
-  wreath.castShadow = false;
-  for (let i = 0; i < 10; i++) {
-    const a = (i / 10) * Math.PI * 2;
-    part(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshBasicMaterial({ color: 0xe0303a }), Math.cos(a) * 0.42, DH + 0.55 + Math.sin(a) * 0.42, D / 2 + 0.17, frontW, false);
+  // 리스는 문짝에 (문과 함께 열리도록 경첩에 붙임)
+  {
+    const wx = panelW / 2, wy = 1.85, wz = 0.09, R = 0.32;
+    const wreath = part(new THREE.TorusGeometry(R, 0.1, 8, 22), lam(0x1f5a3a), wx, wy, wz, hinge, false);
+    doorParts.push(wreath);
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      part(new THREE.SphereGeometry(0.04, 6, 4), new THREE.MeshBasicMaterial({ color: 0xe0303a }), wx + Math.cos(a) * R, wy + Math.sin(a) * R, wz + 0.09, hinge, false);
+    }
+    part(new THREE.SphereGeometry(0.08, 8, 6), lam(0xc8323a), wx, wy - R + 0.02, wz + 0.1, hinge, false);
   }
-  part(new THREE.SphereGeometry(0.1, 8, 6), lam(0xc8323a), 0, DH + 0.18, D / 2 + 0.17, frontW, false);
+
+  // 문 위 큰 나무 간판: 빨간 글씨 'December Club'
+  {
+    const c = document.createElement('canvas');
+    c.width = 1024; c.height = 250;
+    const x = c.getContext('2d');
+    // 나무판 (가로 널빤지 세 장 + 나뭇결)
+    const planks = ['#e2bd86', '#d8b07a', '#e6c48f'];   // 밝은 소나무색 (빨간 벽과 구분되게)
+    for (let i = 0; i < 3; i++) {
+      x.fillStyle = planks[i]; x.fillRect(0, i * 83, 1024, 84);
+      x.strokeStyle = 'rgba(90,55,30,0.22)'; x.lineWidth = 2;
+      for (let k = 0; k < 5; k++) {
+        const y = i * 83 + 12 + k * 15 + Math.random() * 4;
+        x.beginPath(); x.moveTo(0, y);
+        x.bezierCurveTo(300, y + (Math.random() - 0.5) * 10, 700, y + (Math.random() - 0.5) * 10, 1024, y + (Math.random() - 0.5) * 6);
+        x.stroke();
+      }
+      x.fillStyle = 'rgba(70,40,20,0.45)'; x.fillRect(0, i * 83 + 82, 1024, 3);
+    }
+    // 테두리 + 못
+    x.strokeStyle = '#5a3420'; x.lineWidth = 18; x.strokeRect(9, 9, 1006, 232);
+    x.fillStyle = '#4a3020';
+    for (const [px, py] of [[32, 32], [992, 32], [32, 218], [992, 218]]) { x.beginPath(); x.arc(px, py, 7, 0, Math.PI * 2); x.fill(); }
+    // 글씨: 크림색 테두리 위에 빨간색
+    let fs = 170;
+    const font = () => `italic bold ${fs}px Georgia, "Times New Roman", serif`;
+    x.font = font();
+    while (x.measureText('December Club').width > 900 && fs > 60) { fs -= 4; x.font = font(); }   // 판 안에 꼭 맞게
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.lineJoin = 'round';
+    x.strokeStyle = 'rgba(255,244,226,0.9)'; x.lineWidth = 12;
+    x.strokeText('December Club', 512, 132);
+    x.fillStyle = '#c4161f';
+    x.fillText('December Club', 512, 132);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    const SW = 5.2, SH = SW * 250 / 1024;
+    const woodSide = lam(0x8a5a34);
+    const face = new THREE.MeshLambertMaterial({ map: tex, emissive: 0x3a2a1c, emissiveMap: tex });   // 밤에도 글씨가 보이게 살짝 밝힘
+    // 지붕 앞끝(벽보다 0.5m 앞)보다 더 앞에 걸어야 지붕에 묻히지 않음
+    const sy = DH + 0.3 + SH / 2, sz = D / 2 + 0.62;
+    const sign = part(new THREE.BoxGeometry(SW, SH, 0.14), [woodSide, woodSide, woodSide, woodSide, face, woodSide], 0, sy, sz, frontW);
+    sign.castShadow = false;
+    // 위에 소복이 쌓인 눈
+    part(new THREE.BoxGeometry(SW + 0.08, 0.08, 0.22), snowM, 0, sy + SH / 2 + 0.04, sz, frontW, false);
+    // 벽까지 이어 주는 나무 받침대
+    for (const sx of [-1, 1]) part(new THREE.BoxGeometry(0.14, 0.14, sz - D / 2), lam(0x5a3420), sx * (SW / 2 - 0.5), sy - SH / 2 + 0.12, D / 2 + (sz - D / 2) / 2, frontW, false);
+  }
   const porch = new THREE.PointLight(0xffc27a, 16, 13, 1.3);
   porch.position.set(0, 2.9, D / 2 + 1.4);
   g.add(porch);
@@ -1023,7 +1111,6 @@ const TREE = { TOP: 3.1, BASE: 0.55, R0: 1.15, SCALE: 1.6, GROW: 0.018, MAX_CARD
 const treeScaleFor = (n) => TREE.SCALE * (1 + Math.min(n, TREE.MAX_CARDS) * TREE.GROW);   // 40장이면 약 1.7배
 {
   const RADIUS = PLAZA.TREE_R;
-  const front = Math.atan2(HOUSE_FRONT.z, HOUSE_FRONT.x);
   const treeMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   const starGeo = starShape();
   const starMat = new THREE.MeshBasicMaterial({ color: 0xffd86b });
@@ -1031,8 +1118,7 @@ const treeScaleFor = (n) => TREE.SCALE * (1 + Math.min(n, TREE.MAX_CARDS) * TREE
   const { TOP, BASE, R0 } = TREE;
 
   BIG_TREES.forEach((info, k) => {
-    const a = front + Math.PI / 5 + k * (Math.PI * 2 / 5);    // 집 정면은 비워 둠
-    const x = Math.cos(a) * RADIUS, z = Math.sin(a) * RADIUS;
+    const { x, z } = yardAt(PLAZA.ANGLES[k], RADIUS);          // 마당을 빙 둘러섬
     const group = new THREE.Group();
     group.position.set(x, 0, z);
     scene.add(group);
@@ -1043,21 +1129,7 @@ const treeScaleFor = (n) => TREE.SCALE * (1 + Math.min(n, TREE.MAX_CARDS) * TREE
     mesh.userData.info = info;
     group.add(mesh);
 
-    // 나무를 감싸며 올라가는 전구 (나무 로컬 좌표)
-    const pos = [], cols = [];
-    const palette = info.colors.map(hexRGB);
-    const N = 100, TURNS = 5.5;
-    for (let i = 0; i < N; i++) {
-      const f = i / N;
-      const y = BASE + 0.12 + f * (TOP - BASE - 0.35);
-      const r = R0 * (1 - (y - BASE) / (TOP - BASE + 0.23)) + 0.05;
-      const ang = f * TURNS * Math.PI * 2 + k;
-      pos.push(Math.cos(ang) * r, y, Math.sin(ang) * r);
-      cols.push(...palette[i % palette.length]);
-    }
-    const [core, glow] = bulbs(pos, cols, { core: 0.16, glow: 0.9, speed: 1.6 });
-    group.add(core, glow);
-    twinkles[twinkles.length - 1].info = info;
+    // 나무 자체엔 조명을 달지 않음 — 걸린 카드만 빛남
 
     const st = new THREE.Mesh(starGeo, starMat);
     st.position.y = TOP + 0.2;
@@ -1067,7 +1139,7 @@ const treeScaleFor = (n) => TREE.SCALE * (1 + Math.min(n, TREE.MAX_CARDS) * TREE
     group.add(st, sg);
     stars.push(st);
 
-    const light = new THREE.PointLight(new THREE.Color(info.glow), 5, 9, 1.4);
+    const light = new THREE.PointLight(new THREE.Color(info.glow), 0, 9, 1.4);   // 카드가 걸리면 그 빛이 주변을 물들임
     light.position.y = 1.2;
     group.add(light);
 
@@ -1078,7 +1150,7 @@ const treeScaleFor = (n) => TREE.SCALE * (1 + Math.min(n, TREE.MAX_CARDS) * TREE
     const collider = { x, z, r: 0 };
     trees.push(collider);
     Object.assign(info, {
-      x, z, group, mesh, glowPoints: glow, light, starGlow: sg, label, collider,
+      x, z, group, mesh, light, starGlow: sg, label, collider,
       count, scale: treeScaleFor(count), top: TOP, base: BASE, r0: R0,
     });
     applyTreeLevel(info, 1);
@@ -1093,15 +1165,23 @@ function applyTreeLevel(info, k) {
   const b = info.boost;
   info.group.scale.setScalar(info.scale);
   info.collider.r = 0.55 * info.scale;
-  info.light.intensity = 5 + b * 30;
-  info.light.distance = 9 + b * 8;
-  info.glowPoints.material.size = 0.9 + b * 1.1;
-  info.glowPoints.material.opacity = 0.55 + b * 0.4;
+  const lit = Math.min(1, info.count);                                       // 카드가 하나라도 있으면
+  info.litK = (info.litK ?? lit) + (lit - (info.litK ?? lit)) * k;
+  info.light.intensity = info.litK * (3 + b * 26);
+  info.light.distance = 7 + b * 9;
   info.starGlow.scale.setScalar(1.6 + b * 2.2);
   info.label.position.set(info.x, (TREE.TOP + 0.75) * info.scale + 0.3, info.z);
 }
 
 function animateDecor(dt, t) {
+  // 표지판 하트 전구: 둘레를 따라 흐르듯 반짝, 큰 하트는 콩닥콩닥
+  for (const h of signHearts) {
+    const big = h.size > 0.2;
+    const k = big ? 0.75 + 0.25 * Math.pow(Math.max(0, Math.sin(t * 3.2)), 6) : 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 3 + h.phase));
+    h.mat.color.copy(h.base).multiplyScalar(0.55 + 0.6 * k);
+    h.glow.material.opacity = 0.18 + 0.47 * k;
+    if (big) h.glow.scale.setScalar(h.size * (3.6 + k * 1.4));
+  }
   for (const tw of twinkles) {
     const { glow, core, base, phase, speed } = tw;
     const lift = tw.info ? 1 + tw.info.boost * 0.9 : 1;      // 카드가 많을수록 전구도 밝게
@@ -1140,6 +1220,141 @@ function animateDecor(dt, t) {
   house.fireLight.intensity = 14 + flick * 3;
   house.fireGlow.material.opacity = 0.8 + flick * 0.12;
   for (const c of house.candles) c.scale.y = 0.14 * (1 + Math.sin(t * 11 + c.position.x) * 0.15);
+}
+
+/* ───────── 마당 한가운데 모닥불 ───────── */
+const campfire = { flames: [], embers: null, emberData: [], light: null, glow: null, seats: [] };
+{
+  const g = new THREE.Group();
+  g.position.copy(YARD);
+  scene.add(g);
+  const rnd = mulberry(31);
+  const lam = (c) => new THREE.MeshLambertMaterial({ color: c });
+
+  // 눈 위에 둥글게 놓은 돌
+  const stoneGeo = new THREE.DodecahedronGeometry(0.26, 0);
+  const stoneM = lam(0x8a8784), stoneSnow = lam(COLORS.pineSnow);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const st = new THREE.Mesh(stoneGeo, stoneM);
+    st.position.set(Math.cos(a) * 1.05, 0.12, Math.sin(a) * 1.05);
+    st.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3);
+    st.scale.set(1 + rnd() * 0.3, 0.7 + rnd() * 0.25, 1 + rnd() * 0.3);
+    st.castShadow = true;
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), stoneSnow);
+    cap.position.set(st.position.x * 1.06, 0.26, st.position.z * 1.06);
+    cap.scale.y = 0.45;
+    g.add(st, cap);
+  }
+  // 재와 숯
+  const ash = new THREE.Mesh(new THREE.CircleGeometry(0.85, 24), lam(0x2b2522));
+  ash.rotation.x = -Math.PI / 2; ash.position.y = 0.02;
+  const coals = new THREE.Mesh(new THREE.CircleGeometry(0.45, 20), new THREE.MeshBasicMaterial({ color: 0xff6a20 }));
+  coals.rotation.x = -Math.PI / 2; coals.position.y = 0.03;
+  g.add(ash, coals);
+  campfire.coals = coals;
+  // 원뿔(티피) 모양으로 세운 장작
+  const logM = lam(0x6a4428), barkEnd = lam(0xc89a64);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + 0.3;
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 1.25, 7), [logM, barkEnd, barkEnd]);
+    log.position.set(Math.cos(a) * 0.32, 0.5, Math.sin(a) * 0.32);
+    log.lookAt(0, 1.2, 0);
+    log.rotateX(Math.PI / 2);
+    log.castShadow = true;
+    g.add(log);
+  }
+  // 바닥에 눕힌 굵은 장작 두 개
+  for (const [a, y] of [[0.4, 0.1], [2.1, 0.12]]) {
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 1.3, 8), [logM, barkEnd, barkEnd]);
+    log.rotation.z = Math.PI / 2; log.rotation.y = a; log.position.y = y;
+    g.add(log);
+  }
+  // 불꽃
+  for (let i = 0; i < 9; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const a = rnd() * Math.PI * 2, r = i === 0 ? 0 : 0.12 + rnd() * 0.22;
+    s.position.set(Math.cos(a) * r, 0.6, Math.sin(a) * r);
+    g.add(s);
+    campfire.flames.push({ s, phase: rnd() * 10, w: (i === 0 ? 1.2 : 0.7 + rnd() * 0.35), h: (i === 0 ? 2.4 : 1.3 + rnd() * 0.8), x: s.position.x, z: s.position.z });
+  }
+  // 불빛 번짐 + 주변을 물들이는 빛
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: radialTexture('rgba(255,140,50,0.6)', 'rgba(255,140,50,0)'), depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  glow.scale.set(4.5, 3.6, 1); glow.position.y = 0.9;
+  g.add(glow);
+  campfire.glow = glow;
+  const light = new THREE.PointLight(0xff8a3c, 26, 18, 1.3);
+  light.position.y = 1.4;
+  g.add(light);
+  campfire.light = light;
+
+  // 튀어 오르는 불티
+  const N = 40;
+  const pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    campfire.emberData.push({ life: rnd() * 2, max: 1.2 + rnd() * 1.4, x: 0, z: 0, vx: 0, vz: 0 });
+    pos[i * 3 + 1] = -10;
+  }
+  const eg = new THREE.BufferGeometry();
+  eg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  campfire.embers = new THREE.Points(eg, new THREE.PointsMaterial({
+    size: 0.09, map: dotTex, color: 0xffa040, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  g.add(campfire.embers);
+
+  // 둘러앉는 통나무 의자
+  for (const deg of [-60, 95, -150]) {
+    const p = yardAt(deg, 2.7);
+    const facing = Math.atan2(YARD.x - p.x, YARD.z - p.z);                   // 불 쪽
+    const out = yardAt(deg, 3.5);                                             // 일어나면 의자 뒤로
+    campfire.seats.push({ x: p.x, z: p.z, yaw: facing, out: { x: out.x, z: out.z } });
+    const bench = new THREE.Group();
+    bench.position.set(p.x, 0, p.z);
+    bench.lookAt(YARD.x, 0, YARD.z);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 1.7, 10), [logM, barkEnd, barkEnd]);
+    body.rotation.z = Math.PI / 2; body.position.y = 0.25; body.castShadow = true;
+    const snow = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.06, 0.26), lam(COLORS.pineSnow));
+    snow.position.y = 0.5;
+    bench.add(body, snow);
+    scene.add(bench);
+    boxes.push({ x: p.x, z: p.z, rot: Math.atan2(YARD.x - p.x, YARD.z - p.z), hw: 0.85, hd: 0.3 });
+  }
+  trees.push({ x: YARD.x, z: YARD.z, r: 1.25 });
+}
+
+function animateCampfire(dt, t) {
+  for (const f of campfire.flames) {
+    const n = Math.sin(t * 7.3 + f.phase) * 0.5 + Math.sin(t * 13.1 + f.phase * 2) * 0.3 + Math.sin(t * 3.1 + f.phase) * 0.2;
+    const h = f.h * (1 + n * 0.25);
+    f.s.scale.set(f.w * (1 + n * 0.12), h, 1);
+    f.s.position.set(f.x + Math.sin(t * 2.3 + f.phase) * 0.04, 0.15 + h / 2, f.z);
+    f.s.material.opacity = 0.8 + n * 0.18;
+  }
+  const flick = Math.sin(t * 9.1) * 0.5 + Math.sin(t * 23.7) * 0.3 + Math.sin(t * 4.3) * 0.4;
+  campfire.light.intensity = 26 + flick * 5;
+  campfire.glow.material.opacity = 0.85 + flick * 0.12;
+  campfire.coals.material.color.setHSL(0.06, 1, 0.45 + flick * 0.05);
+  const pos = campfire.embers.geometry.attributes.position;
+  campfire.emberData.forEach((e, i) => {
+    e.life += dt;
+    if (e.life > e.max) {
+      e.life = 0; e.max = 1.2 + Math.random() * 1.4;
+      e.x = (Math.random() - 0.5) * 0.5; e.z = (Math.random() - 0.5) * 0.5;
+      e.vx = (Math.random() - 0.5) * 0.35; e.vz = (Math.random() - 0.5) * 0.35;
+    }
+    const k = e.life / e.max;
+    pos.setXYZ(i, e.x + e.vx * e.life + Math.sin(t * 3 + i) * 0.08, 0.5 + e.life * 1.5, e.z + e.vz * e.life);
+  });
+  pos.needsUpdate = true;
+  campfire.embers.material.opacity = 0.9;
+
+  // 가까이 갈수록 장작 타는 소리가 커짐
+  if (window.Sound?.fire) {
+    const d = Math.hypot(state.pos.x - YARD.x, state.pos.z - YARD.z);
+    Sound.fire.level(house.inside > 0.5 ? 0 : Math.max(0, 1 - Math.max(0, d - 2) / 20) ** 1.6);
+  }
 }
 
 /* ───────── 캐릭터 ───────── */
@@ -1381,9 +1596,6 @@ const puffs = (() => {
 
 /* ───────── 트리에 걸린 편지 카드 ───────── */
 const ornaments = [];          // { group, card, tree, phase, born }
-const letterImg = new Image();
-letterImg.src = 'assets/letter.webp';
-const letterReady = new Promise((res) => { letterImg.onload = letterImg.onerror = res; if (letterImg.complete) res(); });
 const fontReady = Promise.race([
   document.fonts ? document.fonts.load('20px ChosunIlboMyungjo').catch(() => {}) : null,
   new Promise((res) => setTimeout(res, 2000)),
@@ -1405,34 +1617,92 @@ function wrapLines(g, text, maxW, maxLines) {
 }
 
 async function ornamentTextures(card) {
-  await Promise.all([letterReady, fontReady]);
-  const W = 256, H = Math.round(256 * 1362 / 1047);
-  const make = (withText) => {
+  const [im] = await Promise.all([cardImages(card.tree), fontReady]);
+  const house = card.tree === 'Family';
+  const W = 256, H = Math.round(256 * im.h / im.w);
+  const make = (src, withText) => {
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const g = c.getContext('2d');
-    g.drawImage(letterImg, 0, 0, W, H);
+    if (src) g.drawImage(src, 0, 0, W, H);
     if (withText) {
       g.fillStyle = '#c2453f';
       g.textAlign = 'center';
-      g.font = 'italic 17px Georgia, serif';
-      g.fillText(card.tree, W / 2, H * 0.2);
-      g.font = '13px ChosunIlboMyungjo, serif';
-      g.fillText(card.category, W / 2, H * 0.27);
-      g.fillStyle = '#5b2a24';
-      g.font = '15px ChosunIlboMyungjo, serif';
-      const lines = wrapLines(g, card.answer, W * 0.66, 5);
-      lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.5 + i * 22));
-      g.fillStyle = '#c2453f';
-      g.font = 'italic 13px Georgia, serif';
-      g.fillText(`From. ${club.memberName(card.member)}`, W / 2, H * 0.86);
+      if (card.tree === 'Feeling') {
+        // 양말 카드: 접단에 트리 이름, 다리·발에 답변
+        const cx = W * 0.6;
+        g.font = 'italic 16px Georgia, serif';
+        g.fillText(card.tree, W * 0.66, H * 0.17);
+        g.font = '10px ChosunIlboMyungjo, serif';
+        g.fillText(card.category, W * 0.66, H * 0.22);
+        g.fillStyle = '#5b2a24';
+        g.font = '14px ChosunIlboMyungjo, serif';
+        const lines = wrapLines(g, card.answer, W * 0.48, 6);
+        lines.forEach((l, i) => g.fillText(l, cx, H * 0.36 + i * 19));
+        g.fillStyle = '#c2453f';
+        g.font = 'italic 11px Georgia, serif';
+        g.fillText(`From. ${club.memberName(card.member)}`, W * 0.48, H * 0.8);
+      } else if (card.tree === 'Wish') {
+        // 별 카드: 가운데에 트리 이름·답변
+        g.font = 'italic 15px Georgia, serif';
+        g.fillText(card.tree, W / 2, H * 0.28);
+        g.font = '10px ChosunIlboMyungjo, serif';
+        g.fillText(card.category, W / 2, H * 0.34);
+        g.fillStyle = '#5b2a24';
+        g.font = '13px ChosunIlboMyungjo, serif';
+        const lines = wrapLines(g, card.answer, W * 0.56, 4);
+        lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.45 + i * 18));
+        g.fillStyle = '#c2453f';
+        g.font = 'italic 10px Georgia, serif';
+        g.fillText(`From. ${club.memberName(card.member)}`, W / 2, H * 0.74);
+      } else if (card.tree === 'Growth') {
+        // 진저브레드 편지지: 머리에 트리 이름, 팔·몸통에 답변
+        g.fillStyle = '#c2453f';
+        g.font = 'italic 16px Georgia, serif';
+        g.fillText(card.tree, W / 2, H * 0.15);
+        g.font = '11px ChosunIlboMyungjo, serif';
+        g.fillText(card.category, W / 2, H * 0.21);
+        g.fillStyle = '#5b2a24';
+        g.font = '14px ChosunIlboMyungjo, serif';
+        const lines = wrapLines(g, card.answer, W * 0.62, 4);
+        lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.44 + i * 19));
+        g.fillStyle = '#c2453f';
+        g.font = 'italic 11px Georgia, serif';
+        g.fillText(`From. ${club.memberName(card.member)}`, W / 2, H * 0.73);
+      } else if (house) {
+        // 지붕(민무늬)에 트리 이름, 몸통에 답변
+        g.font = 'italic 16px Georgia, serif';
+        g.fillText(card.tree, W / 2, H * 0.31);
+        g.font = '11px ChosunIlboMyungjo, serif';
+        g.fillText(card.category, W / 2, H * 0.4);
+        g.fillStyle = '#5b2a24';
+        g.font = '14px ChosunIlboMyungjo, serif';
+        const lines = wrapLines(g, card.answer, W * 0.56, 4);
+        lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.6 + i * 19));
+        g.fillStyle = '#c2453f';
+        g.font = 'italic 11px Georgia, serif';
+        g.fillText(`From. ${club.memberName(card.member)}`, W / 2, H * 0.93);
+      } else {
+        g.font = 'italic 17px Georgia, serif';
+        g.fillText(card.tree, W / 2, H * 0.2);
+        g.font = '13px ChosunIlboMyungjo, serif';
+        g.fillText(card.category, W / 2, H * 0.27);
+        g.fillStyle = '#5b2a24';
+        g.font = '15px ChosunIlboMyungjo, serif';
+        const lines = wrapLines(g, card.answer, W * 0.66, 5);
+        lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.5 + i * 22));
+        g.fillStyle = '#c2453f';
+        g.font = 'italic 13px Georgia, serif';
+        g.fillText(`From. ${club.memberName(card.member)}`, W / 2, H * 0.86);
+      }
     }
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     return t;
   };
-  return [make(true), make(false)];
+  // [글씨 있는 면, 반대 면] — 민무늬 뒷면에 글씨, 반대쪽은 앞면 그림(체크 지붕 등)
+  return [make(im.back, true), make(im.front, false), im];
 }
 
 // 카드가 걸릴 자리: 나무 표면을 따라 황금각 나선으로 고르게
@@ -1442,39 +1712,75 @@ function ornamentSlot(info, i) {
   const y = TREE.BASE + 0.35 + f * (TREE.TOP - TREE.BASE - 1.05);
   const ang = i * 2.39996 + 0.7;
   // 전나무는 3단 원뿔이라, 그 높이에서 가장 바깥 가지 반지름 바로 바깥에 건다
+  const r = coneR(y) + 0.28 / TREE.SCALE;
+  return { x: Math.cos(ang) * r, y, z: Math.sin(ang) * r, ang };
+}
+// 나무 로컬 높이 y 에서 가지(원뿔) 바깥 반지름
+function coneR(y) {
   let r = 0;
   for (let k = 0; k < 3; k++) {
     const r0 = 1.15 - k * 0.3, h = 1.35 - k * 0.15, y0 = 0.55 + k * 0.75;
     if (y >= y0 && y <= y0 + h) r = Math.max(r, r0 * (1 - (y - y0) / h));
   }
-  r += 0.28 / TREE.SCALE;
-  return { x: Math.cos(ang) * r, y, z: Math.sin(ang) * r, ang };
+  return r;
 }
 
-const ORN_W = 0.62, ORN_H = ORN_W * 1362 / 1047;
-const ornGeo = new THREE.PlaneGeometry(ORN_W, ORN_H).translate(0, -ORN_H / 2 - 0.12, 0);
+const cardGlowTex = radialTexture('rgba(255,255,255,0.95)', 'rgba(255,255,255,0)');
+const ornGeos = {};
+function ornGeo(im) {
+  const key = `${im.w}x${im.h}`;
+  if (!ornGeos[key]) {
+    const w = im.w > im.h ? 0.74 : 0.62, h = w * im.h / im.w;
+    ornGeos[key] = new THREE.PlaneGeometry(w, h).translate(0, -h / 2 - 0.12, 0);
+  }
+  return ornGeos[key];
+}
 const stringMat = new THREE.LineBasicMaterial({ color: 0xd8b56a });
-const stringGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.05, 0), new THREE.Vector3(0, -0.13, 0)]);
 
 async function addOrnament(info, card, slotIndex, animate) {
-  const [front, back] = await ornamentTextures(card);
+  const [front, back, im] = await ornamentTextures(card);
+  const geo = ornGeo(im);
   const s = ornamentSlot(info, slotIndex);
   const group = new THREE.Group();
-  group.position.set(s.x, s.y, s.z);
+  // 카드 전체가 가지 밖으로 보이도록: 카드가 내려오는 높이 범위에서 가장 넓은 가지보다 바깥에 걸고,
+  // 가지 끝에서 실로 늘어뜨림
+  const S = TREE.SCALE;
+  const cw = geo.parameters.width / S, ch = (geo.parameters.height + 0.12) / S;
+  let rMax = 0;
+  for (let k = 0; k <= 8; k++) rMax = Math.max(rMax, coneR(s.y - (k / 8) * ch));
+  const sag = rMax > cw / 2 ? rMax - Math.sqrt(rMax * rMax - (cw / 2) ** 2) : cw / 2;   // 넓은 카드의 양끝이 둥근 가지에 닿지 않게
+  const rCard = rMax + sag + 0.06;
+  const rHook = coneR(s.y) + 0.02;
+  group.position.set(Math.cos(s.ang) * rCard, s.y, Math.sin(s.ang) * rCard);
+  group.rotation.order = 'YXZ';
   group.rotation.y = Math.atan2(Math.cos(s.ang), Math.sin(s.ang));     // 바깥쪽을 바라봄
-  const f = new THREE.Mesh(ornGeo, new THREE.MeshLambertMaterial({ map: front, transparent: true, alphaTest: 0.4, side: THREE.FrontSide }));
-  const b = new THREE.Mesh(ornGeo, new THREE.MeshLambertMaterial({ map: back, transparent: true, alphaTest: 0.4, side: THREE.FrontSide }));
+  const f = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: front, transparent: true, alphaTest: 0.4, side: THREE.FrontSide }));
+  const b = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: back, transparent: true, alphaTest: 0.4, side: THREE.FrontSide }));
   b.rotation.y = Math.PI;
   f.castShadow = b.castShadow = true;
-  // 카드 자체가 은은하게 보이도록 살짝 밝힘
-  f.material.emissive = new THREE.Color(0x3a2a20);
-  f.material.emissiveMap = front;
-  const string = new THREE.Line(stringGeo, stringMat);
-  group.add(f, b, string);
+  // 카드가 스스로 빛나도록: 양면 모두 자체 발광 + 뒤로 은은한 빛 번짐
+  for (const [m, tex] of [[f, front], [b, back]]) {
+    m.material.emissive = new THREE.Color(0xd8c6ae);
+    m.material.emissiveMap = tex;
+  }
+  const h = geo.parameters.height;
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: cardGlowTex, color: new THREE.Color(info.glow).lerp(new THREE.Color(0xfff2d6), 0.45),
+    transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, opacity: 0.7,
+  }));
+  halo.renderOrder = 2;
+  halo.position.set(0, -h / 2 - 0.12, 0.22);                // 가지에 가려지지 않게 카드 살짝 앞에
+  halo.scale.setScalar(Math.max(geo.parameters.width, h) * 2.6);
+  halo.raycast = () => {};                                   // 클릭은 카드만
+  const reach = Math.max(0, rCard - rHook) * S;             // 가지 끝까지의 거리 (카드 로컬)
+  const string = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0.05 + reach * 0.35, -reach), new THREE.Vector3(0, -0.13, 0),
+  ]), stringMat);
+  group.add(halo, f, b, string);
   f.userData.card = b.userData.card = card;
   f.userData.tree = b.userData.tree = info.name;
   info.group.add(group);
-  ornaments.push({ group, card, tree: info.name, slot: slotIndex, phase: Math.random() * Math.PI * 2, born: animate ? clock.elapsedTime : -10, meshes: [f, b] });
+  ornaments.push({ group, halo, card, tree: info.name, slot: slotIndex, tilt: 0, phase: Math.random() * Math.PI * 2, born: animate ? clock.elapsedTime : -10, meshes: [f, b] });
 }
 
 function removeOrnament(card) {
@@ -1483,9 +1789,11 @@ function removeOrnament(card) {
   const o = ornaments[i];
   o.group.parent?.remove(o.group);
   o.meshes.forEach((m) => { m.material.map.dispose(); m.material.dispose(); });
+  o.halo.material.dispose();
   ornaments.splice(i, 1);
 }
 
+const _ornPos = new THREE.Vector3(), _ornDir = new THREE.Vector3(), _ornCam = new THREE.Vector3(), _ornQ = new THREE.Quaternion();
 function animateOrnaments(t) {
   for (const o of ornaments) {
     const age = t - o.born;
@@ -1493,7 +1801,12 @@ function animateOrnaments(t) {
     const bounce = age < 0.9 ? Math.sin(age * 9) * (1 - age / 0.9) * 0.25 : 0;
     o.group.scale.setScalar(Math.max(0.01, pop) / TREE.SCALE);
     o.group.rotation.z = Math.sin(t * 1.3 + o.phase) * 0.06 + bounce;
-    o.group.rotation.x = Math.sin(t * 0.9 + o.phase * 2) * 0.04;
+    o.group.rotation.x = (o.tilt || 0) + Math.sin(t * 0.9 + o.phase * 2) * 0.04;
+    // 숨 쉬듯 반짝 — 나무 뒤편 카드의 빛은 가지에 가려진 것처럼 흐리게
+    o.group.getWorldPosition(_ornPos);
+    _ornDir.set(0, 0, 1).applyQuaternion(o.group.getWorldQuaternion(_ornQ));
+    const facing = THREE.MathUtils.clamp(_ornDir.dot(_ornCam.copy(camera.position).sub(_ornPos).normalize()) * 2.2 + 0.35, 0, 1);
+    o.halo.material.opacity = (0.6 + 0.2 * Math.sin(t * 1.7 + o.phase * 3)) * facing;
   }
 }
 
@@ -1604,15 +1917,24 @@ let nearTree = null;                                     // 카드를 쓸 수 �
 let atDoor = false;                                      // 현관문 앞(또는 안쪽)이면 true
 const nearbyBtn = document.querySelector('.nearby');
 const nearbyLabel = nearbyBtn.firstChild;
+let nearSeat = null;                                      // 가까운 모닥불 의자
+function sitDown(seat) { keys.clear(); state.seat = seat; state.unseat = null; }
+function standUp() {
+  if (!state.seat) return;
+  state.unseat = state.seat.out;
+  state.seat = null;
+}
 function doNearby() {
-  if (atDoor) toggleDoor();
+  if (state.seat) standUp();
+  else if (atDoor) toggleDoor();
+  else if (nearSeat) sitDown(nearSeat);
   else if (nearTree) { keys.clear(); openTree(nearTree); }
 }
 nearbyBtn.addEventListener('click', doNearby);
 document.addEventListener('letter:open', () => { keys.clear(); stick.id = null; stick.x = stick.y = 0; joy.classList.remove('is-on'); looks.clear(); });
 addEventListener('keydown', (e) => {
   if (!active || letters.isOpen()) return;
-  if ((e.code === 'KeyE' || e.code === 'Enter') && (atDoor || nearTree)) { e.preventDefault(); doNearby(); return; }
+  if ((e.code === 'KeyE' || e.code === 'Enter') && (atDoor || nearTree || nearSeat || state.seat)) { e.preventDefault(); doNearby(); return; }
   const k = KEYMAP[e.code];
   if (!k) return;
   keys.add(k);
@@ -1696,6 +2018,9 @@ const state = {
   blink: 0, nextBlink: 2,
   nextBreath: 1.5,
   moved: false,
+  seat: null,          // 모닥불 의자에 앉아 있으면 그 자리
+  sitK: 0,             // 앉은 정도 0~1
+  unseat: null,        // 일어나서 의자 뒤로 비켜서는 중
 };
 {
   const p = pathCurve.getPointAt(START_T);
@@ -1728,13 +2053,24 @@ function update(dt, t) {
     if (!state.moved) { state.moved = true; hint.classList.remove('is-on'); }
   }
 
-  const target = move.clone().multiplyScalar(SPEED * (amount > 0.05 ? amount : 0));
+  // 의자에 앉아 있다가 움직이려 하면 일어남
+  if (state.seat && amount > 0.05) standUp();
+  const pinned = state.seat || state.unseat;
+  const target = move.clone().multiplyScalar(pinned ? 0 : SPEED * (amount > 0.05 ? amount : 0));
   state.vel.lerp(target, Math.min(1, dt * 8));
   const speed = state.vel.length();
   const speedF = Math.min(1, speed / SPEED);
 
   // 이동 + 나무·가로등 충돌 + 바깥 경계
   const next = state.pos.clone().addScaledVector(state.vel, dt);
+  const goal = state.seat || state.unseat;
+  if (goal) {                                               // 의자 쪽으로 / 의자 뒤로 스르륵
+    state.vel.set(0, 0, 0);
+    next.set(state.pos.x + (goal.x - state.pos.x) * Math.min(1, dt * 7), 0, state.pos.z + (goal.z - state.pos.z) * Math.min(1, dt * 7));
+    if (state.seat) state.yaw = lerpAngle(state.yaw, state.seat.yaw, Math.min(1, dt * 7));
+    if (state.unseat && Math.hypot(goal.x - next.x, goal.z - next.z) < 0.05) state.unseat = null;
+  }
+  if (!goal) {
   for (const o of trees) {
     const dx = next.x - o.x, dz = next.z - o.z, min = o.r + 0.3;
     const d2 = dx * dx + dz * dz;
@@ -1756,8 +2092,10 @@ function update(dt, t) {
       next.z = b.z - lx * sn + lz * c;
     }
   }
+  }
   const r = Math.hypot(next.x, next.z);
   if (r > 92) { next.x *= 92 / r; next.z *= 92 / r; }
+  state.sitK += ((state.seat ? 1 : 0) - state.sitK) * Math.min(1, dt * 5);
   state.pos.copy(next);
   state.pos.y = heightAt(state.pos.x, state.pos.z);
 
@@ -1797,6 +2135,16 @@ function update(dt, t) {
   head.rotation.x = -0.05 * speedF;
   pom.position.z = -0.04 * speedF + Math.sin(t * 6) * 0.01;
   pom.position.y = 0.36 - Math.abs(sw) * 0.02 * speedF;
+  // 의자에 앉은 자세: 엉덩이를 의자 위에, 다리는 앞으로, 두 손은 불 쪽으로 쬐기
+  const sk = state.sitK;
+  if (sk > 0.001) {
+    const mix = (a, b) => a + (b - a) * sk;
+    body.position.y = mix(body.position.y, 0.13);
+    body.rotation.x = mix(body.rotation.x, -0.06);
+    for (const l of legs) l.rotation.x = mix(l.rotation.x, -1.25);
+    arms.forEach((a, i) => { a.rotation.x = mix(a.rotation.x, -1.0 + Math.sin(t * 1.6 + i) * 0.05); });
+    head.rotation.x = mix(head.rotation.x, 0.08);
+  }
   tailSegs.forEach((seg, i) => {
     seg.rotation.x = -(0.15 + 0.55 * speedF) * (i === 0 ? 1 : 0.35) + Math.sin(t * 7 - i * 0.9) * (0.08 + 0.18 * speedF);
     seg.rotation.z = Math.sin(t * 3 - i) * 0.08;
@@ -1827,8 +2175,15 @@ function update(dt, t) {
   camTarget.lerp(state.pos, Math.min(1, dt * 5));
   // 실내에선 위에서 내려다보는 '인형의 집' 시점
   const ib = house.inside;
-  const pitch = cam.pitch + (0.95 - cam.pitch) * ib;
-  const dist = cam.dist + (9 - cam.dist) * ib;
+  // 앉아 있으면 등 뒤 가까이에서 불을 바라봄
+  const sk2 = state.sitK;
+  if (state.seat && t - cam.lastDrag > 1.5 && looks.size === 0) {
+    cam.yaw = lerpAngle(cam.yaw, state.seat.yaw + Math.PI + 0.55, Math.min(1, dt * 2));
+  }
+  const pitch0 = cam.pitch + (0.3 - cam.pitch) * sk2;
+  const dist0 = cam.dist + (Math.min(cam.dist, 4.6) - cam.dist) * sk2;
+  const pitch = pitch0 + (0.95 - pitch0) * ib;
+  const dist = dist0 + (9 - dist0) * ib;
   const cp = Math.cos(pitch);
   camera.position.set(
     camTarget.x + Math.sin(cam.yaw) * cp * dist,
@@ -1853,18 +2208,26 @@ function update(dt, t) {
 
   updatePrints(dt);
   animateDecor(dt, t);
+  animateCampfire(dt, t);
   animateOrnaments(t);
 
   // 현관문 · 트리 근처 안내 (문이 우선)
   animateDoor(t);
   nearTree = null;
-  atDoor = active && !letters.isOpen() && nearDoor();
-  if (active && !letters.isOpen() && !atDoor) {
+  nearSeat = null;
+  atDoor = active && !letters.isOpen() && !state.seat && nearDoor();
+  if (active && !letters.isOpen() && !atDoor && !state.seat && !state.unseat) {
+    nearSeat = campfire.seats.find((c) => Math.hypot(state.pos.x - c.x, state.pos.z - c.z) < 1.7) || null;
+  }
+  if (active && !letters.isOpen() && !atDoor && !nearSeat && !state.seat) {
     for (const b of BIG_TREES) {
       if (writableTree(b.name) && Math.hypot(state.pos.x - b.x, state.pos.z - b.z) < 7.5) { nearTree = b; break; }
     }
   }
-  const label = atDoor ? (house.door.open ? '🚪 문 닫기' : '🚪 문 열기') : nearTree ? `✦ ${nearTree.name} 트리에 카드 쓰기` : null;
+  const label = state.seat ? '🔥 일어나기'
+    : atDoor ? (house.door.open ? '🚪 문 닫기' : '🚪 문 열기')
+    : nearSeat ? '🔥 의자에 앉아 불 쬐기'
+    : nearTree ? `✦ ${nearTree.name} 트리에 카드 쓰기` : null;
   nearbyBtn.classList.toggle('is-on', !!label);
   if (label && nearbyLabel.textContent !== label) nearbyLabel.textContent = label;
   if (!reduce) snow.update(dt, t, camTarget.x, camTarget.z);

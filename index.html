@@ -260,6 +260,12 @@
       pointer-events: none;
     }
     .member.is-on { opacity: 1; }
+    .member { white-space: nowrap; }
+    /* 좁은 화면: 배지를 작게, 안내 문구는 배지 아래로 */
+    @media (max-width: 640px) {
+      .member { font-size: 12px; padding: 7px 12px; }
+      .hint--walk { top: max(62px, calc(env(safe-area-inset-top) + 48px)); font-size: 12px; }
+    }
     .member b { font-style: normal; color: #ffd27a; }
     .welcome {
       position: fixed;
@@ -324,8 +330,8 @@
     .letter {
       position: relative;
       z-index: 1;
-      height: min(70vh, calc((100vw - 32px) * 1362 / 1047), 720px);
-      aspect-ratio: 1047 / 1362;
+      height: min(70vh, calc((100vw - 32px) / var(--ar-n, 0.7687)), 720px);
+      aspect-ratio: var(--ar, 1047 / 1362);
       perspective: 1600px;
       container-type: inline-size;
       opacity: 0;
@@ -453,6 +459,69 @@
       color: rgba(91, 42, 36, 0.5);
     }
     .letter__date { right: auto; left: 16%; }
+    /* Family: 체크무늬 지붕 집 카드 — 앞면 지붕은 무늬, 몸통에 질문 / 뒷면 지붕에 질문, 몸통에 답 */
+    .letter-modal[data-tree="Family"] .letter__tag { left: 19%; right: 19%; top: 53%; font-size: 2.9cqw; }
+    .letter-modal[data-tree="Family"] .letter__q { left: 20%; right: 20%; top: 58%; bottom: 13%; font-size: 4.2cqw; }
+    .letter-modal[data-tree="Family"] .letter__flip-hint { bottom: 4.5%; font-size: 2.5cqw; }
+    .letter-modal[data-tree="Family"] .letter__q-small { left: 32%; right: 32%; top: 19%; height: 26%; font-size: 2.8cqw; }
+    .letter-modal[data-tree="Family"] .letter__answer,
+    .letter-modal[data-tree="Family"] .letter__answer-view { left: 21%; right: 21%; top: 53%; height: 31%; font-size: 3.4cqw; }
+    .letter-modal[data-tree="Family"] .letter__from { left: 21%; right: 21%; top: 86%; font-size: 2.6cqw; }
+    .letter-modal[data-tree="Family"] .letter__count,
+    .letter-modal[data-tree="Family"] .letter__date { bottom: 4%; font-size: 2.3cqw; }
+    .letter-modal[data-tree="Family"] .letter__count { right: 21%; }
+    .letter-modal[data-tree="Family"] .letter__date { left: 21%; }
+    /* Growth: 진저브레드 모양 크림색 편지지 — 머리에 질문, 팔·몸통에 답 */
+    .letter-modal[data-tree="Growth"] .letter__face { color: #5b2a24; }
+    .letter-modal[data-tree="Growth"] .letter__tag { left: 26%; right: 26%; top: 12.5%; font-size: 3cqw; color: #c2453f; }
+    .letter-modal[data-tree="Growth"] .letter__q { left: 26%; right: 26%; top: 17%; bottom: 66%; font-size: 3.9cqw; line-height: 1.5; }
+    .letter-modal[data-tree="Growth"] .letter__flip-hint { bottom: 24%; font-size: 2.6cqw; color: rgba(194, 69, 63, .75); }
+    .letter-modal[data-tree="Growth"] .letter__q-small { left: 30%; right: 30%; top: 12%; height: 21%; font-size: 3cqw; color: #c2453f; }
+    .letter-modal[data-tree="Growth"] .letter__answer,
+    .letter-modal[data-tree="Growth"] .letter__answer-view {
+      left: 20%; right: 20%; top: 37%; height: 27%; font-size: 3.7cqw; color: #5b2a24;
+      background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2.05em - 1px), rgba(194, 69, 63, 0.22) calc(2.05em - 1px), rgba(194, 69, 63, 0.22) 2.05em);
+    }
+    .letter-modal[data-tree="Growth"] .letter__answer::placeholder { color: rgba(91, 42, 36, 0.4); }
+    .letter-modal[data-tree="Growth"] .letter__from { left: 28%; right: 28%; top: 67%; font-size: 2.9cqw; color: #c2453f; }
+    .letter-modal[data-tree="Growth"] .letter__count,
+    .letter-modal[data-tree="Growth"] .letter__date { bottom: 2.5%; font-size: 2.5cqw; color: rgba(194, 69, 63, .75); }
+    .letter-modal[data-tree="Growth"] .letter__count { right: 22%; bottom: 4%; }
+    .letter-modal[data-tree="Growth"] .letter__date { left: 22%; bottom: 4%; }
+    /* Feeling: 크리스마스 양말 카드 — 앞면 접단에 태그, 다리에 질문 / 뒷면 접단에 질문, 다리·발에 답 */
+    .letter-modal[data-tree="Feeling"] .letter__face { color: #5b2a24; }
+    .letter-modal[data-tree="Feeling"] .letter__tag { left: 37%; right: 8%; top: 16%; font-size: 3.2cqw; color: #c2453f; }
+    .letter-modal[data-tree="Feeling"] .letter__q { left: 33%; right: 14%; top: 31%; bottom: 40%; font-size: 4.6cqw; line-height: 1.55; }
+    .letter-modal[data-tree="Feeling"] .letter__flip-hint { left: 8%; right: 18%; bottom: 13%; font-size: 3cqw; color: rgba(194, 69, 63, .75); }
+    .letter-modal[data-tree="Feeling"] .letter__q-small { left: 37%; right: 8%; top: 11%; height: 15%; font-size: 3.1cqw; color: #c2453f; }
+    .letter-modal[data-tree="Feeling"] .letter__answer,
+    .letter-modal[data-tree="Feeling"] .letter__answer-view {
+      left: 37%; right: 14%; top: 32%; height: 32%; font-size: 3.8cqw; color: #5b2a24;
+      background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2.05em - 1px), rgba(194, 69, 63, 0.22) calc(2.05em - 1px), rgba(194, 69, 63, 0.22) 2.05em);
+    }
+    .letter-modal[data-tree="Feeling"] .letter__answer::placeholder { color: rgba(91, 42, 36, 0.4); }
+    .letter-modal[data-tree="Feeling"] .letter__from { left: 14%; right: 18%; top: 68%; font-size: 3.2cqw; color: #c2453f; }
+    .letter-modal[data-tree="Feeling"] .letter__count,
+    .letter-modal[data-tree="Feeling"] .letter__date { bottom: 15%; font-size: 2.7cqw; color: rgba(194, 69, 63, .75); }
+    .letter-modal[data-tree="Feeling"] .letter__count { right: 24%; }
+    .letter-modal[data-tree="Feeling"] .letter__date { left: 14%; }
+    /* Wish: 빨간 테두리 별 모양 카드 — 별 가운데에 질문 / 뒷면 위쪽에 질문, 가운데에 답 */
+    .letter-modal[data-tree="Wish"] .letter__face { color: #5b2a24; }
+    .letter-modal[data-tree="Wish"] .letter__tag { left: 26%; right: 26%; top: 24%; font-size: 3cqw; color: #c2453f; }
+    .letter-modal[data-tree="Wish"] .letter__q { left: 22%; right: 22%; top: 30%; bottom: 32%; font-size: 4.2cqw; line-height: 1.55; }
+    .letter-modal[data-tree="Wish"] .letter__flip-hint { bottom: 22%; font-size: 2.6cqw; color: rgba(194, 69, 63, .75); }
+    .letter-modal[data-tree="Wish"] .letter__q-small { left: 31%; right: 31%; top: 17%; height: 17%; font-size: 2.8cqw; color: #c2453f; }
+    .letter-modal[data-tree="Wish"] .letter__answer,
+    .letter-modal[data-tree="Wish"] .letter__answer-view {
+      left: 19%; right: 19%; top: 35%; height: 31%; font-size: 3.6cqw; color: #5b2a24;
+      background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2.05em - 1px), rgba(194, 69, 63, 0.22) calc(2.05em - 1px), rgba(194, 69, 63, 0.22) 2.05em);
+    }
+    .letter-modal[data-tree="Wish"] .letter__answer::placeholder { color: rgba(91, 42, 36, 0.4); }
+    .letter-modal[data-tree="Wish"] .letter__from { left: 28%; right: 28%; top: 68%; font-size: 2.8cqw; color: #c2453f; }
+    .letter-modal[data-tree="Wish"] .letter__count,
+    .letter-modal[data-tree="Wish"] .letter__date { bottom: 21%; font-size: 2.4cqw; color: rgba(194, 69, 63, .75); }
+    .letter-modal[data-tree="Wish"] .letter__count { right: 28%; }
+    .letter-modal[data-tree="Wish"] .letter__date { left: 28%; }
     .letter__from {
       position: absolute;
       left: 16%;

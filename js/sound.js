@@ -1,6 +1,7 @@
 /* 소리: Web Audio로 직접 합성 (음원 파일 없음)
    - bell(): 은은한 종소리
-   - crunch(): 눈 밟는 소리 */
+   - crunch(): 눈 밟는 소리
+   - fire.level(0~1): 모닥불 장작 타는 소리 (가까울수록 크게) */
 window.Sound = (() => {
   let ctx = null, out = null;
 
@@ -323,5 +324,73 @@ window.Sound = (() => {
   addEventListener('pointerdown', onFirstInput);
   addEventListener('keydown', onFirstInput);
 
-  return { unlock, bell, crunch, creak, thud, music, get ready() { return ready(); } };
+  /* 모닥불: 실제 장작이 타닥타닥 튀는 소리
+     - 아주 짧은 '탁' 소리(수 ms짜리 잡음 조각)를 불규칙하게, 가끔 두세 번 연달아 터뜨림
+     - 가끔 조금 더 큰 '딱' (낮은 울림 없이)
+     - 바람 같은 깔림 소리(지속 잡음)는 넣지 않음
+     미리 몇 초 길이로 만들어 두고, 길이가 다른 두 개를 겹쳐 반복해 같은 패턴이 들리지 않게 함 */
+  const fire = (() => {
+    let bus = null, target = 0;
+    function crackleBuffer(seconds, seed) {
+      const sr = ctx.sampleRate, len = Math.floor(sr * seconds);
+      const buf = ctx.createBuffer(1, len, sr);
+      const d = buf.getChannelData(0);
+      let x = seed;
+      const rnd = () => { x = (x * 16807) % 2147483647; return x / 2147483647; };
+      const burst = (at, amp, tau) => {
+        const n = Math.min(len - at, Math.floor(sr * tau * 7));
+        let lp = 0;
+        for (let i = 0; i < n; i++) {
+          const env = Math.exp(-i / (sr * tau));
+          const w = rnd() * 2 - 1;
+          lp += (w - lp) * 0.55;                       // 너무 날카로운 고음만 살짝 깎음
+          d[at + i] += (w - lp * 0.4) * env * amp;
+        }
+      };
+      let t = 0.05;
+      while (t < seconds - 0.1) {
+        const big = rnd() < 0.06;
+        const amp = big ? 0.5 + rnd() * 0.25 : 0.08 + Math.pow(rnd(), 2.2) * 0.5;
+        burst(Math.floor(t * sr), amp, big ? 0.002 + rnd() * 0.002 : 0.0006 + rnd() * 0.0018);
+        // 타닥타닥: 가끔 짧은 간격으로 몇 번 이어서
+        if (rnd() < 0.3) {
+          const k = 1 + Math.floor(rnd() * 3);
+          let tt = t;
+          for (let j = 0; j < k; j++) {
+            tt += 0.015 + rnd() * 0.05;
+            burst(Math.floor(tt * sr), amp * (0.4 + rnd() * 0.6), 0.0005 + rnd() * 0.0012);
+          }
+        }
+        t += 0.06 + Math.pow(rnd(), 1.6) * 0.45;
+      }
+      return buf;
+    }
+    function setup() {
+      bus = ctx.createGain(); bus.gain.value = 0;
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;   // '텅·통' 하는 낮은 울림은 잘라냄
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
+      bus.connect(hp).connect(lp).connect(ctx.destination);
+      [[7.3, 11], [10.9, 29]].forEach(([sec, seed]) => {
+        const src = ctx.createBufferSource();
+        src.buffer = crackleBuffer(sec, seed);
+        src.loop = true;
+        const g = ctx.createGain(); g.gain.value = 0.7;
+        src.connect(g).connect(bus);
+        src.start(ctx.currentTime + 0.05, Math.random() * sec);
+      });
+    }
+    return {
+      level(v) {
+        if (!ready()) return;
+        if (!bus) setup();
+        v = Math.max(0, Math.min(1, v));
+        if (Math.abs(v - target) > 0.01) {
+          target = v;
+          bus.gain.setTargetAtTime(v * 0.22, ctx.currentTime, 0.25);
+        }
+      },
+    };
+  })();
+
+  return { unlock, bell, crunch, creak, thud, music, fire, get ready() { return ready(); } };
 })();

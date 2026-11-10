@@ -65,6 +65,8 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
         if self.path.startswith("/api/"):
             self.send_header("Cache-Control", "no-store")
+        else:
+            self.send_header("Cache-Control", "no-cache")   # 고친 파일이 바로 보이게 (매번 새 버전 확인)
         super().end_headers()
 
     def reply(self, code, obj):

@@ -1,8 +1,13 @@
-/* 편지 카드 (눈사람 모양 편지지)
+/* 편지 카드 (Friends: 눈사람 편지지 / Family: 체크 지붕 집 카드 / Growth: 진저브레드 편지지)
    - 앞면: 사진 + 랜덤 질문 / 뒷면: 답변 쓰는 칸
    - 다 쓰면 "트리에 달기" → 트리에 걸린 카드는 다시 눌러서 볼 수 있음
    - 저장은 club.js(공유 서버)가 맡고, 여기서는 화면만 다룸 */
 import { memberName, getMe, isMine } from './club.js';
+import { cardStyle, cardImages, CARD_STYLES } from './cards.js';
+
+// 카드 앞뒤 그림은 만드는 데 시간이 조금 걸려서, 페이지가 한가할 때 미리 준비
+const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
+idle(() => Object.keys(CARD_STYLES).reduce((p, t) => p.then(() => cardImages(t)), Promise.resolve()));
 
 export const QUESTIONS = {
   Friends: [
@@ -52,6 +57,194 @@ export const QUESTIONS = {
       ],
     },
   ],
+  Family: [
+    {
+      category: '함께한 시간',
+      items: [
+        '올해 가족과 함께한 순간 중 가장 따뜻했던 장면은 무엇인가요?',
+        '평범한 하루였지만 유난히 기억에 남는 가족과의 식탁이 있나요?',
+        '올해 가족과 함께 처음 해본 일이 있다면 무엇인가요?',
+        '가족과 나눈 대화 중 오래 마음에 남은 한마디가 있나요?',
+      ],
+    },
+    {
+      category: '고마운 마음',
+      items: [
+        '올해 가족에게 가장 고마웠던 순간은 언제였나요?',
+        '말로 표현하지 못했지만 가족에게 꼭 전하고 싶은 고마움이 있나요?',
+        '힘들 때 가족 덕분에 버틸 수 있었던 순간이 있었나요?',
+        '가족이 나를 위해 해준 작은 일 중 기억에 남는 것이 있나요?',
+      ],
+    },
+    {
+      category: '조금 더 알게 된 가족',
+      items: [
+        '올해 가족의 새로운 모습을 발견한 적이 있나요?',
+        '가족과 닮았다고 느낀 나의 모습이 있나요?',
+        '예전에는 이해하지 못했지만 이제는 알 것 같은 가족의 마음이 있나요?',
+        '가족에게 내가 어떤 존재인지 느꼈던 순간이 있었나요?',
+      ],
+    },
+    {
+      category: '우리 집의 작은 이야기',
+      items: [
+        '우리 가족만 아는 웃긴 이야기나 습관이 있나요?',
+        '집에서 가장 좋아하는 자리나 시간은 언제인가요?',
+        '우리 집의 연말 풍경을 한 장면으로 그린다면 어떤 모습인가요?',
+        '가족을 떠올리면 생각나는 냄새나 소리, 음식이 있나요?',
+      ],
+    },
+    {
+      category: '내년의 우리',
+      items: [
+        '내년에는 가족과 어떤 추억을 만들고 싶나요?',
+        '가족에게 내년에는 더 자주 해주고 싶은 말이나 행동이 있나요?',
+        '가족과 함께 꼭 가보고 싶은 곳이 있나요?',
+        '몇 년 뒤 우리 가족이 어떤 모습이었으면 좋겠나요?',
+      ],
+    },
+  ],
+  Growth: [
+    {
+      category: '달라진 나',
+      items: [
+        '올해의 나는 작년의 나와 무엇이 가장 달라졌나요?',
+        '올해 처음으로 해본 일 중 가장 용기가 필요했던 것은 무엇인가요?',
+        '예전에는 어려웠지만 이제는 조금 편해진 일이 있나요?',
+        '올해 새로 생긴 좋은 습관이 있다면 무엇인가요?',
+      ],
+    },
+    {
+      category: '넘어지고 일어서기',
+      items: [
+        '올해 가장 힘들었던 순간은 언제였고, 어떻게 지나왔나요?',
+        '실패라고 생각했지만 돌아보니 배움이 된 일이 있나요?',
+        '포기하고 싶었지만 끝까지 해낸 일이 있나요?',
+        '스스로를 다독여 준 나만의 방법이 있었나요?',
+      ],
+    },
+    {
+      category: '배우고 깨달은 것',
+      items: [
+        '올해 배운 것 중 가장 오래 남을 것 같은 한 가지는 무엇인가요?',
+        '누군가에게서 배운 태도나 말 중 마음에 새긴 것이 있나요?',
+        '올해 생각이 바뀐 일이 있다면 무엇인가요?',
+        '나에 대해 새롭게 알게 된 점이 있나요?',
+      ],
+    },
+    {
+      category: '나를 칭찬하기',
+      items: [
+        '올해 스스로에게 가장 칭찬해 주고 싶은 순간은 언제인가요?',
+        '아무도 몰랐지만 나는 알고 있는 나의 노력이 있나요?',
+        '올해의 나에게 상을 준다면 어떤 이름의 상을 주고 싶나요?',
+        '작지만 꾸준히 해낸 일이 있다면 무엇인가요?',
+      ],
+    },
+    {
+      category: '내년의 성장',
+      items: [
+        '내년에는 어떤 모습으로 한 뼘 더 자라고 싶나요?',
+        '내년에 새로 배워 보고 싶은 것이 있나요?',
+        '내년의 나에게 꼭 지켜 주었으면 하는 약속이 있나요?',
+        '1년 뒤의 나에게 어떤 말을 듣고 싶나요?',
+      ],
+    },
+  ],
+  Feeling: [
+    {
+      category: '올해의 감정',
+      items: [
+        '올해를 하나의 감정으로 표현한다면 어떤 감정인가요?',
+        '올해 가장 많이 웃었던 순간은 언제였나요?',
+        '올해 가장 많이 울컥했던 순간이 있나요?',
+        '올해 나를 가장 자주 찾아온 기분은 무엇이었나요?',
+      ],
+    },
+    {
+      category: '마음이 따뜻했던 순간',
+      items: [
+        '올해 마음이 몽글몽글해졌던 순간이 있나요?',
+        '누군가의 말 한마디에 하루가 환해졌던 적이 있나요?',
+        '올해 "아, 행복하다" 하고 느낀 순간은 언제였나요?',
+        '생각만 해도 미소가 지어지는 올해의 장면이 있나요?',
+      ],
+    },
+    {
+      category: '조금 힘들었던 마음',
+      items: [
+        '올해 마음이 무거웠던 날, 나를 버티게 해준 것은 무엇이었나요?',
+        '올해 털어놓지 못하고 혼자 삼켰던 마음이 있나요?',
+        '불안하거나 걱정될 때 나는 어떻게 마음을 달랬나요?',
+        '올해 내 마음을 가장 많이 흔든 일은 무엇이었나요?',
+      ],
+    },
+    {
+      category: '지금 이 순간의 마음',
+      items: [
+        '이 카드를 쓰는 지금, 내 마음은 어떤 날씨인가요?',
+        '요즘 나를 설레게 하는 것이 있나요?',
+        '지금 가장 듣고 싶은 말은 무엇인가요?',
+        '요즘 내 마음을 편안하게 해주는 것은 무엇인가요?',
+      ],
+    },
+    {
+      category: '마음 전하기',
+      items: [
+        '올해 고맙다고 말하지 못한 마음을 지금 전해 볼까요?',
+        '미안했던 마음이 남아 있는 사람이 있나요?',
+        '올해의 나에게 "수고했어" 말고 해주고 싶은 말이 있나요?',
+        '내년의 나는 어떤 마음으로 하루를 보냈으면 좋겠나요?',
+      ],
+    },
+  ],
+  Wish: [
+    {
+      category: '내년의 소원',
+      items: [
+        '내년의 나에게 딱 하나의 소원을 빈다면 무엇인가요?',
+        '내년 이맘때, 어떤 일이 이루어져 있으면 가장 기쁠까요?',
+        '내년에 꼭 한 번 해보고 싶은 일이 있나요?',
+        '내년을 한 단어로 정한다면 어떤 단어로 채우고 싶나요?',
+      ],
+    },
+    {
+      category: '소중한 사람을 위한 소원',
+      items: [
+        '내가 아끼는 사람에게 꼭 이루어졌으면 하는 소원이 있나요?',
+        '이 카드를 읽을 클럽 멤버들에게 빌어주고 싶은 소원은?',
+        '가족이나 친구가 내년에는 덜 아팠으면, 덜 힘들었으면 하는 일이 있나요?',
+        '누군가의 소원을 대신 이뤄줄 수 있다면 누구의 어떤 소원인가요?',
+      ],
+    },
+    {
+      category: '작고 확실한 소원',
+      items: [
+        '거창하지 않아도, 내년에 자주 누리고 싶은 작은 행복은 무엇인가요?',
+        '내년의 평범한 하루가 어떤 모습이었으면 좋겠나요?',
+        '내년에 더 자주 하고 싶은 일과 덜 하고 싶은 일은?',
+        '내년에 나에게 선물하고 싶은 것이 있나요?',
+      ],
+    },
+    {
+      category: '오래 품어온 꿈',
+      items: [
+        '오래전부터 마음속에 품고 있던 꿈이 있나요?',
+        '언젠가 꼭 가보고 싶은 곳이 있다면 어디인가요?',
+        '10년 뒤의 나는 어떤 모습이었으면 좋겠나요?',
+        '아직 아무에게도 말하지 않은 바람이 있다면 살짝 적어볼까요?',
+      ],
+    },
+    {
+      category: '세상을 향한 소원',
+      items: [
+        '내가 사는 세상이 내년에는 조금 더 이렇게 바뀌었으면 하는 점이 있나요?',
+        '모두에게 하나씩 나눠줄 수 있다면 어떤 마음을 나눠주고 싶나요?',
+        '내년에는 내가 누군가에게 어떤 소원이 되어주고 싶나요?',
+        '크리스마스의 기적이 하나 일어난다면 어떤 일이었으면 좋겠나요?',
+      ],
+    },
+  ],
 };
 
 export const PHOTOS = { Friends: 'assets/friends.webp' };
@@ -80,6 +273,8 @@ const answerView = modal.querySelector('.letter__answer-view');
 const count = modal.querySelector('.letter__count span');
 const dateEl = modal.querySelector('.letter__date');
 const fromEl = modal.querySelector('.letter__from');
+const faceFront = modal.querySelector('.letter__face--front');
+const faceBack = modal.querySelector('.letter__face--back');
 const btn = {
   close: modal.querySelector('.js-close'),
   reroll: modal.querySelector('.js-reroll'),
@@ -109,7 +304,25 @@ function fill(card) {
   tagCat.textContent = card.category;
   qFront.textContent = card.question;
   qBack.textContent = card.question;
-  photo.src = PHOTOS[tree];
+  photo.hidden = !PHOTOS[tree];
+  if (PHOTOS[tree]) photo.src = PHOTOS[tree];
+  applyStyle(tree);
+}
+
+// 트리마다 카드 모양(종이·비율)이 다름
+function applyStyle(name) {
+  const s = cardStyle(name);
+  modal.dataset.tree = name;
+  letter.style.setProperty('--ar', `${s.w} / ${s.h}`);
+  letter.style.setProperty('--ar-n', String(s.w / s.h));
+  const first = s.crop ? 'none' : `url('${s.front}')`;     // 잘라 쓰는 그림은 준비될 때까지 비워 둠
+  faceFront.style.backgroundImage = first;
+  faceBack.style.backgroundImage = first;
+  cardImages(name).then((im) => {
+    if (modal.dataset.tree !== name) return;
+    faceFront.style.backgroundImage = `url('${im.frontUrl}')`;
+    faceBack.style.backgroundImage = `url('${im.backUrl}')`;
+  });
 }
 
 function updateCount() {

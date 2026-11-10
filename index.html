@@ -19,6 +19,9 @@
   <meta name="twitter:title" content="You're invited to December Club 🎄" />
   <meta name="twitter:description" content="올해를 마무리하는 작은 모임에 당신을 초대합니다. 마음속에 남겨둔 이야기를 카드에 적고, 우리의 트리에 하나씩 걸어주세요." />
   <meta name="twitter:image" content="https://december-club-nine.vercel.app/assets/og-image.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pinyon+Script&display=swap" />
   <link rel="icon" href="favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
@@ -249,6 +252,27 @@
       box-shadow: 0 0 24px rgba(255, 190, 110, 0.25);
     }
     .nearby.is-on { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+    /* 눈 굴리기 버튼 (오른쪽 아래) — 누르고 있는 동안은 밝게 */
+    .roll {
+      position: fixed;
+      right: max(18px, env(safe-area-inset-right));
+      bottom: max(24px, calc(env(safe-area-inset-bottom) + 12px));
+      z-index: 5;
+      width: 54px; height: 54px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 220, 160, 0.55);
+      background: rgba(0, 20, 70, 0.5);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: #fff3dc;
+      font-size: 26px; line-height: 1;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .8s ease, background .2s ease, box-shadow .2s ease;
+    }
+    .roll.is-on { opacity: 1; pointer-events: auto; }
+    .roll[aria-pressed="true"] { background: rgba(255, 243, 220, 0.9); color: #0b2a6a; box-shadow: 0 0 22px rgba(255, 230, 190, 0.7); }
     .nearby kbd {
       margin-left: 8px;
       padding: 2px 6px;
@@ -301,6 +325,16 @@
       white-space: nowrap;
     }
     .welcome small { display: block; font: 14px/1.6 'ChosunIlboMyungjo', Georgia, serif; letter-spacing: 0.04em; opacity: 0.85; }
+    /* 새해까지 남은 날 — 초대장 같은 필기체 */
+    .welcome__dday {
+      display: block;
+      margin-bottom: 4px;
+      font: 76px/1.15 'Pinyon Script', 'Snell Roundhand', cursive;
+      font-style: normal;
+      color: #ffe3b0;
+      text-shadow: 0 0 28px rgba(255, 190, 110, 0.75);
+    }
+    @media (max-width: 640px) { .welcome__dday { font-size: 60px; } .welcome { font-size: 24px; } }
     .welcome.is-on { opacity: 1; transform: translate(-50%, 0); }
     .letter-actions button[hidden] { display: none !important; }
 
@@ -581,6 +615,50 @@
     .letter-modal[data-mode="write"][data-side="front"] :is(.js-reroll, .js-to-back),
     .letter-modal[data-mode="write"][data-side="back"] :is(.js-to-front, .js-hang),
     .letter-modal[data-mode="view"] :is(.js-flip, .js-remove) { display: inline-block; }
+    .letter-modal[data-mode="write"][data-side="front"] .js-others,
+    .letter-modal[data-mode="view"] .js-others { display: inline-block; }
+    @media (max-width: 640px) { .letter-actions { flex-wrap: wrap; justify-content: center; max-width: 92vw; } }
+
+    /* 같은 질문에 다른 사람들은 어떻게 답했는지 */
+    .answers {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(0, 8, 30, 0.55);
+    }
+    .answers[hidden] { display: none; }
+    .answers__box {
+      width: min(440px, 100%);
+      max-height: min(76vh, 640px);
+      display: flex;
+      flex-direction: column;
+      padding: 22px 20px 16px;
+      border-radius: 14px;
+      background: #fbf5ea;
+      color: var(--paper-ink);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+      font-family: 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+    }
+    .answers__q { margin: 0 0 12px; color: var(--paper-red); font-size: 16px; line-height: 1.55; text-align: center; word-break: keep-all; }
+    .answers__list { list-style: none; margin: 0; padding: 0 4px; overflow-y: auto; flex: 1; }
+    .answers__list li { padding: 12px 2px; border-top: 1px dashed rgba(194, 69, 63, 0.35); }
+    .answers__list p { margin: 0; font-size: 15px; line-height: 1.7; white-space: pre-wrap; word-break: keep-all; }
+    .answers__list small { display: block; margin-top: 6px; text-align: right; color: var(--paper-red); font: italic 13px Georgia, serif; }
+    .answers__close {
+      align-self: center;
+      margin-top: 12px;
+      padding: 9px 22px;
+      border-radius: 999px;
+      border: 1px solid var(--paper-red);
+      background: transparent;
+      color: var(--paper-red);
+      font: 14px 'ChosunIlboMyungjo', Georgia, serif;
+      cursor: pointer;
+    }
 
     .snow { transition: opacity 1.4s ease; }
     .snow.is-off { opacity: 0; }
@@ -607,7 +685,8 @@
     <canvas class="snow snow--front" aria-hidden="true"></canvas>
 
     <p class="hint hint--intro">♪ tap to hear the bells</p>
-    <p class="hint hint--walk"><span class="keys">WASD / ← ↑ → ↓ to walk · drag to look around</span><span class="touch">drag left side to walk · right side to look</span></p>
+    <p class="hint hint--walk"><span class="keys">WASD / ← ↑ → ↓ to walk · drag to look around · R to roll a snowball</span><span class="touch">drag left side to walk · right side to look</span></p>
+    <button class="roll" type="button" aria-pressed="false" aria-label="눈 굴리기 (R)" title="눈 굴리기 (R)">☃</button>
 
     <button class="music" type="button" aria-pressed="true" aria-label="음악 켜기/끄기 (M)" title="음악 켜기/끄기 (M)">♪</button>
     <p class="member" aria-live="polite"></p>
@@ -642,6 +721,14 @@
         <button class="js-hang is-primary" type="button" disabled>✦ 트리에 달기</button>
         <button class="js-flip" type="button">↻ 뒤집기</button>
         <button class="js-remove" type="button">떼어내기</button>
+        <button class="js-others" type="button" hidden>💬 같은 질문의 답</button>
+      </div>
+      <div class="answers" hidden role="dialog" aria-label="같은 질문에 대한 다른 답">
+        <div class="answers__box">
+          <p class="answers__q"></p>
+          <ul class="answers__list"></ul>
+          <button class="answers__close" type="button">닫기</button>
+        </div>
       </div>
     </div>
 

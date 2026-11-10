@@ -2073,6 +2073,85 @@ function pick(clientX, clientY) {
   return info && writableTree(info.name) ? { type: 'tree', info } : null;
 }
 
+/* ───────── 눈 굴리기 ─────────
+   R(또는 ☃ 버튼)을 누르면 발 앞에 작은 눈덩이가 생기고, 걸을수록 굴러가며 커짐
+   다시 누르면 그 자리에 놓음. 더 큰 눈덩이 바로 옆에 놓으면 위로 올라가 눈사람이 됨
+   (내 화면에만 보임) */
+const snowballs = [];                                    // 놓아 둔 눈덩이 { mesh, r, collider, top }
+const SNOWBALL = { START: 0.14, MAX: 1.05, GROW: 0.045, KEEP: 24 };
+const snowballMat = new THREE.MeshStandardMaterial({ color: 0xf3f7ff, roughness: 1, metalness: 0 });
+const snowballGeo = new THREE.IcosahedronGeometry(1, 3);
+let rolling = null;                                      // 굴리는 중인 눈덩이 { mesh, r, last }
+const rollBtn = document.querySelector('.roll');
+
+function startRolling() {
+  if (rolling || state.seat) return;
+  const mesh = new THREE.Mesh(snowballGeo, snowballMat);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  mesh.scale.setScalar(SNOWBALL.START);
+  scene.add(mesh);
+  rolling = { mesh, r: SNOWBALL.START, last: null };
+  rollBtn.setAttribute('aria-pressed', 'true');
+  window.Sound && Sound.crunch();
+}
+
+function letGo() {
+  if (!rolling) return;
+  const { mesh, r } = rolling;
+  rolling = null;
+  rollBtn.setAttribute('aria-pressed', 'false');
+  // 옆에 더 큰 눈덩이(또는 눈사람 몸통)가 있으면 그 위로 쌓기
+  const base = snowballs.find((b) => !b.covered && b.r > r * 1.05
+    && Math.hypot(b.mesh.position.x - mesh.position.x, b.mesh.position.z - mesh.position.z) < b.r + r + 0.15);
+  const ball = { mesh, r, collider: null, covered: false };
+  if (base) {
+    mesh.position.set(base.mesh.position.x, base.top + r * 0.82, base.mesh.position.z);
+    base.covered = true;
+    ball.top = mesh.position.y + r;
+  } else {
+    ball.collider = { x: mesh.position.x, z: mesh.position.z, r: r * 0.9 };
+    trees.push(ball.collider);                           // 큰 눈덩이는 지나갈 수 없게
+    ball.top = mesh.position.y + r;
+  }
+  snowballs.push(ball);
+  window.Sound && Sound.crunch();
+  while (snowballs.length > SNOWBALL.KEEP) {             // 너무 많아지면 오래된 것부터 녹음
+    const old = snowballs.shift();
+    scene.remove(old.mesh);
+    if (old.collider) trees.splice(trees.indexOf(old.collider), 1);
+  }
+}
+const toggleRolling = () => (rolling ? letGo() : startRolling());
+
+function updateSnowball(indoors) {
+  if (!rolling) return;
+  if (indoors || state.seat || letters.isOpen()) { letGo(); return; }
+  const { mesh } = rolling;
+  const fx = Math.sin(state.yaw), fz = Math.cos(state.yaw);
+  let x = state.pos.x + fx * (rolling.r + 0.32), z = state.pos.z + fz * (rolling.r + 0.32);
+  for (const o of trees) {                                // 나무·집에 파고들지 않게
+    const dx = x - o.x, dz = z - o.z, min = o.r + rolling.r * 0.8;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < min * min && d2 > 1e-6) { const d = Math.sqrt(d2); x = o.x + (dx / d) * min; z = o.z + (dz / d) * min; }
+  }
+  if (rolling.last) {
+    const mx = x - rolling.last.x, mz = z - rolling.last.z, d = Math.hypot(mx, mz);
+    if (d > 1e-4 && d < 2) {
+      rolling.r = Math.min(SNOWBALL.MAX, rolling.r + d * SNOWBALL.GROW * (1 - rolling.r / (SNOWBALL.MAX * 1.3)));
+      mesh.rotateOnWorldAxis(new THREE.Vector3(mz / d, 0, -mx / d), d / rolling.r);   // 굴러간 만큼 회전
+    }
+  }
+  rolling.last = { x, z };
+  mesh.scale.setScalar(rolling.r);
+  mesh.position.set(x, rolling.r * 0.94, z);             // 살짝 눈에 파묻힌 느낌
+}
+rollBtn.addEventListener('click', () => { if (active) toggleRolling(); });
+addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyR' || !active || letters.isOpen() || e.repeat) return;
+  e.preventDefault();
+  toggleRolling();
+});
+
 /* ───────── 입력 ───────── */
 const keys = new Set();
 const KEYMAP = {
@@ -2291,6 +2370,8 @@ function update(dt, t) {
   hero.root.rotation.y = state.yaw;
   poseHero(hero, state.phase, speedF, t, state.sitK);
 
+  updateSnowball(indoors);
+
   // 다른 접속자: 내 위치를 보내고, 다른 사람들을 받은 위치로 부드럽게 움직임
   presence.send(state);
   updateOthers(dt, t);
@@ -2422,6 +2503,15 @@ requestAnimationFrame(frame);
 /* ───────── 클럽 입장: 멤버 번호 받기 → 트리 카드 불러오기 ───────── */
 const memberEl = document.querySelector('.member');
 const welcomeEl = document.querySelector('.welcome');
+// 새해(1월 1일, 한국 시간)까지 남은 날. 1월 첫 주에는 { year } 만 돌려줘 새해 인사를 보여 줌
+function newYearCountdown(now = Date.now()) {
+  const k = new Date(now + 9 * 3600e3);                  // 한국 시간의 날짜
+  const y = k.getUTCFullYear(), m = k.getUTCMonth(), d = k.getUTCDate();
+  if (m === 0 && d <= 7) return { year: y };
+  const days = Math.round((Date.UTC(y + 1, 0, 1) - Date.UTC(y, m, d)) / 864e5);
+  return { days, year: y + 1 };
+}
+
 const nameTag = makeNameTag(hero.root);
 const joined = club.join().then(async (me) => {
   memberEl.innerHTML = `December Club · <b>${club.memberName(me.no)}</b>`;
@@ -2434,11 +2524,15 @@ const joined = club.join().then(async (me) => {
   return me;
 });
 document.addEventListener('scene:start', () => {
+  rollBtn.classList.add('is-on');
   joined.then((me) => {
     memberEl.classList.add('is-on');
-    welcomeEl.innerHTML = `Welcome, ${club.memberName(me.no)}<small>December Club에 입장했어요</small>`;
+    const ny = newYearCountdown();
+    const dday = ny.days ? `D-${ny.days}` : `Happy New Year`;
+    const note = ny.days ? `${ny.year}년 새해까지 ${ny.days}일 남았어요` : `${ny.year}년, 새해 복 많이 받으세요`;
+    welcomeEl.innerHTML = `<span class="welcome__dday">${dday}</span>Welcome, ${club.memberName(me.no)}<small>${note}</small>`;
     welcomeEl.classList.add('is-on');
-    setTimeout(() => welcomeEl.classList.remove('is-on'), 3200);
+    setTimeout(() => welcomeEl.classList.remove('is-on'), 5200);
   });
 }, { once: true });
 

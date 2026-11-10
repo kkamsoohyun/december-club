@@ -2,7 +2,7 @@
    - 앞면: 사진 + 랜덤 질문 / 뒷면: 답변 쓰는 칸
    - 다 쓰면 "트리에 달기" → 트리에 걸린 카드는 다시 눌러서 볼 수 있음
    - 저장은 club.js(공유 서버)가 맡고, 여기서는 화면만 다룸 */
-import { memberName, getMe, isMine } from './club.js';
+import { memberName, getMe, isMine, fetchCards } from './club.js';
 import { cardStyle, cardImages, CARD_STYLES } from './cards.js';
 
 // 카드 앞뒤 그림은 만드는 데 시간이 조금 걸려서, 페이지가 한가할 때 미리 준비
@@ -283,7 +283,11 @@ const btn = {
   hang: modal.querySelector('.js-hang'),
   flip: modal.querySelector('.js-flip'),
   remove: modal.querySelector('.js-remove'),
+  others: modal.querySelector('.js-others'),
 };
+const answersEl = modal.querySelector('.answers');
+const answersQ = modal.querySelector('.answers__q');
+const answersList = modal.querySelector('.answers__list');
 
 let mode = null;          // 'write' | 'view'
 let tree = 'Friends';
@@ -307,7 +311,38 @@ function fill(card) {
   photo.hidden = !PHOTOS[tree];
   if (PHOTOS[tree]) photo.src = PHOTOS[tree];
   applyStyle(tree);
+  loadOthers();
 }
+
+/* 같은 질문에 다른 사람들이 쓴 답 — 트리에 걸린 카드 중 질문이 같은 것 */
+let others = [];
+async function loadOthers() {
+  const q = current?.question, t = tree, self = mode === 'view' ? current?.id : null;
+  others = [];
+  btn.others.hidden = true;
+  const cards = (await fetchCards(t)) || [];
+  if (current?.question !== q || tree !== t) return;         // 그 사이 질문이 바뀌었으면 버림
+  others = cards.filter((c) => c.question === q && c.id !== self)
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  btn.others.textContent = `💬 같은 질문의 답 ${others.length}`;
+  btn.others.hidden = others.length === 0;
+}
+function showOthers() {
+  answersQ.textContent = current.question;
+  answersList.replaceChildren(...others.map((c) => {
+    const li = document.createElement('li');
+    const p = document.createElement('p');
+    p.textContent = c.answer;                                  // 글자 그대로 (HTML로 해석하지 않음)
+    const small = document.createElement('small');
+    const d = new Date(c.createdAt);
+    small.textContent = `From. ${memberName(c.member)}${isMine(c) ? ' (나)' : ''}${isNaN(d) ? '' : ` · ${d.getMonth() + 1}. ${d.getDate()}.`}`;
+    li.append(p, small);
+    return li;
+  }));
+  answersEl.hidden = false;
+  answersList.scrollTop = 0;
+}
+const hideOthers = () => { answersEl.hidden = true; };
 
 // 트리마다 카드 모양(종이·비율)이 다름
 function applyStyle(name) {
@@ -338,6 +373,7 @@ function open() {
 
 export function close() {
   if (!isOpen()) return;
+  hideOthers();
   if (mode === 'write') drafts[tree] = { ...current, answer: answer.value };
   modal.classList.remove('is-open');
   answer.blur();
@@ -395,6 +431,9 @@ btn.reroll.addEventListener('click', () => {
   void letter.offsetWidth;
   letter.classList.add('is-rerolled');
 });
+btn.others.addEventListener('click', showOthers);
+modal.querySelector('.answers__close').addEventListener('click', hideOthers);
+answersEl.addEventListener('click', (e) => { if (e.target === answersEl) hideOthers(); });
 btn.toBack.addEventListener('click', () => setSide(true));
 btn.toFront.addEventListener('click', () => setSide(false));
 btn.flip.addEventListener('click', () => setSide(!letter.classList.contains('is-flipped')));
@@ -433,6 +472,6 @@ btn.remove.addEventListener('click', async () => {
 
 addEventListener('keydown', (e) => {
   if (!isOpen()) return;
-  if (e.key === 'Escape') close();
+  if (e.key === 'Escape') { if (!answersEl.hidden) hideOthers(); else close(); }
   e.stopPropagation();
 }, true);

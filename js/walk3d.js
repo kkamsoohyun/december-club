@@ -2530,7 +2530,7 @@ document.addEventListener('scene:start', () => {
     const ny = newYearCountdown();
     const dday = ny.days ? `D-${ny.days}` : `Happy New Year`;
     const note = ny.days ? `${ny.year}년 새해까지 ${ny.days}일 남았어요` : `${ny.year}년, 새해 복 많이 받으세요`;
-    welcomeEl.innerHTML = `<span class="welcome__dday">${dday}</span>Welcome, ${club.memberName(me.no)}<small>${note}</small>`;
+    welcomeEl.innerHTML = `<span class="welcome__dday"><span class="welcome__knit">${dday}</span></span>Welcome, ${club.memberName(me.no)}<small>${note}</small>`;
     welcomeEl.classList.add('is-on');
     setTimeout(() => welcomeEl.classList.remove('is-on'), 5200);
   });

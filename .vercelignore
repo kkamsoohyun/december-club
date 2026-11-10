@@ -1,0 +1,5 @@
+# 로컬 개발용 파일은 배포하지 않음 (저장은 Supabase가 맡음)
+server.py
+supabase.sql
+data/
+.claude/

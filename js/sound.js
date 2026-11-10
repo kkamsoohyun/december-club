@@ -160,123 +160,160 @@ window.Sound = (() => {
     c.start(now + 0.05); c.stop(now + 0.1);
   }
 
-  /* ───────── 배경 캐럴 (오르골 소리로 합성) ─────────
-     저작권이 만료된 전통 캐럴: Silent Night(1818), Jingle Bells(1857) */
+  /* ───────── 배경 음악: 잔잔한 보사노바 (직접 만든 곡, Web Audio 합성) ─────────
+     - 나일론 기타 컴핑(엇박 리듬) + 엄지 베이스 + 셰이커·림샷 + 비브라폰 멜로디
+     - 16마디를 반복, 멜로디는 한 번 걸러 한 번만 나와서 덜 지루하게 */
   const SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
   const freq = (n) => {
     const m = /^([A-G])(#|b)?(\d)$/.exec(n);
     const midi = SEMI[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + (Number(m[3]) + 1) * 12;
     return 440 * Math.pow(2, (midi - 69) / 12);
   };
-  const CHORDS = {
-    C: ['C3', 'E3', 'G3'], F: ['F3', 'A3', 'C4'], G: ['G2', 'B2', 'D3'],
-    G7: ['G2', 'B2', 'F3'], D7: ['D3', 'F#3', 'C4'],
-  };
-  const SONGS = [
-    {
-      name: 'Silent Night', unit: 0.27, bar: 6,       // 6/8, 8분음표 단위
-      melody: `G4:3 A4:1 G4:2 E4:6 G4:3 A4:1 G4:2 E4:6
-               D5:4 D5:2 B4:6 C5:4 C5:2 G4:6
-               A4:4 A4:2 C5:3 B4:1 A4:2 G4:3 A4:1 G4:2 E4:6
-               A4:4 A4:2 C5:3 B4:1 A4:2 G4:3 A4:1 G4:2 E4:6
-               D5:4 D5:2 F5:3 D5:1 B4:2 C5:6 E5:6
-               C5:3 G4:1 E4:2 G4:3 F4:1 D4:2 C4:12`,
-      chords: 'C C C C G G C C F F C C F F C C G G C C C G7 C C',
-    },
-    {
-      name: 'Jingle Bells', unit: 0.19, bar: 8,       // 4/4, 8분음표 단위
-      melody: `E5:2 E5:2 E5:4 E5:2 E5:2 E5:4 E5:2 G5:2 C5:3 D5:1 E5:8
-               F5:2 F5:2 F5:3 F5:1 F5:2 E5:2 E5:2 E5:1 E5:1 E5:2 D5:2 D5:2 E5:2 D5:4 G5:4
-               E5:2 E5:2 E5:4 E5:2 E5:2 E5:4 E5:2 G5:2 C5:3 D5:1 E5:8
-               F5:2 F5:2 F5:2 F5:2 F5:2 E5:2 E5:2 E5:1 E5:1 G5:2 G5:2 F5:2 D5:2 C5:8`,
-      chords: 'C C C C F C D7 G7 C C C C F C G7 C',
-    },
-  ];
+
+  const STEP = 0.112;                 // 16분음표 길이(초) — 약 134 BPM
+  // 마디별 화음: [베이스 근음, 5음, 기타 보이싱]
+  const BARS = [
+    ['C2', 'G2', 'C3 G3 B3 E4'],     // Cmaj7
+    ['A1', 'E2', 'A2 G3 C4 E4'],     // Am7
+    ['D2', 'A2', 'D3 F3 C4 E4'],     // Dm9
+    ['G1', 'D2', 'G2 F3 B3 E4'],     // G13
+    ['E2', 'B2', 'E3 B3 D4 G4'],     // Em7
+    ['A1', 'E2', 'A2 C#3 G3 Bb3'],   // A7(b9)
+    ['D2', 'A2', 'D3 F3 C4 E4'],     // Dm9
+    ['G1', 'D2', 'G2 F3 B3 D4'],     // G7
+    ['F2', 'C3', 'F3 A3 C4 E4'],     // Fmaj7
+    ['F2', 'C3', 'F3 Ab3 C4 D4'],    // Fm6
+    ['E2', 'B2', 'E3 B3 D4 G4'],     // Em7
+    ['A1', 'E2', 'A2 C#3 G3 Bb3'],   // A7(b9)
+    ['D2', 'A2', 'D3 F3 C4 E4'],     // Dm9
+    ['G1', 'D2', 'G2 F3 B3 E4'],     // G13
+    ['C2', 'G2', 'C3 E3 B3 D4'],     // Cmaj9
+    ['C2', 'G2', 'C3 E3 A3 D4'],     // C6/9
+  ].map(([r, f, v]) => ({ root: freq(r), fifth: freq(f), voicing: v.split(' ').map(freq) }));
+
+  // 멜로디 (음:16분음표 개수, R은 쉼표) — 마디마다 16칸
+  const MELODY = `R:2 E5:2 G5:3 E5:1 D5:4 C5:4 | B4:6 A4:2 G4:8 | R:2 F4:2 A4:2 C5:2 E5:6 D5:2 | D5:3 C5:3 B4:2 E5:8 |
+    R:4 G4:2 B4:2 D5:3 B4:1 G4:4 | Bb4:6 A4:2 C#5:8 | D5:3 E5:3 F5:2 A5:6 G5:2 | F5:4 E5:4 D5:8 |
+    R:2 C5:2 E5:2 A5:2 G5:8 | R:2 Ab4:2 C5:2 F5:2 D5:8 | R:2 B4:2 D5:2 G5:2 E5:8 | C#5:3 E5:3 G5:2 Bb5:8 |
+    A5:4 F5:4 E5:4 D5:4 | E5:6 D5:2 B4:8 | R:4 D5:4 E5:8 | R:16`
+    .split('|').map((bar) => {
+      const notes = []; let at = 0;
+      for (const tok of bar.trim().split(/\s+/)) {
+        const [n, len] = tok.split(':');
+        if (n !== 'R') notes.push({ at, len: Number(len), f: freq(n) });
+        at += Number(len);
+      }
+      return notes;
+    });
+
+  // 리듬 패턴 (16칸 중 소리 나는 자리)
+  const COMP = [[0, 3, 6, 10, 12], [2, 6, 8, 12, 14]];      // 기타: 두 마디가 한 쌍
+  const BASS = [[0, 'root', 6], [6, 'fifth', 2], [8, 'fifth', 6], [14, 'root', 2]];
+  const CLAVE = [0, 3, 6, 10, 13];                          // 림샷
 
   const music = (() => {
     let gain = null, wanted = false, playing = false, muted = false;
-    let songIdx = 0, events = [], evIdx = 0, songEnd = 0, timer = null;
+    let bar = 0, loop = 0, nextBar = 0, timer = null, noise = null;
+    const human = () => (Math.random() - 0.5) * 0.012;      // 사람이 치는 듯 살짝 어긋나게
 
-    function chime(f, when, vel) {                   // 오르골 한 음
-      const g = ctx.createGain();
-      const decay = Math.max(0.8, 2.2 - (f - 260) / 600);
-      g.gain.setValueAtTime(0, when);
-      g.gain.linearRampToValueAtTime(vel, when + 0.005);
-      g.gain.exponentialRampToValueAtTime(0.0001, when + decay);
-      g.connect(gain);
-      for (const [mul, amp] of [[1, 1], [2, 0.22], [3.01, 0.07], [4.2, 0.03]]) {
-        const o = ctx.createOscillator();
-        const a = ctx.createGain();
-        o.type = 'sine';
-        o.frequency.value = f * mul;
-        a.gain.value = amp;
-        o.connect(a).connect(g);
-        o.start(when);
-        o.stop(when + decay + 0.05);
-      }
-    }
-
-    function pad(notes, when, dur) {                 // 부드러운 화음 배경
+    function pluck(f, when, dur, vel) {                      // 나일론 기타 한 줄
+      const o1 = ctx.createOscillator(), o2 = ctx.createOscillator();
+      o1.type = 'triangle'; o2.type = 'sawtooth';
+      o1.frequency.value = f; o2.frequency.value = f; o2.detune.value = 4;
+      const mix2 = ctx.createGain(); mix2.gain.value = 0.18;
       const lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.value = 700;
+      lp.type = 'lowpass'; lp.Q.value = 0.6;
+      lp.frequency.setValueAtTime(Math.min(4200, f * 7), when);
+      lp.frequency.exponentialRampToValueAtTime(Math.max(300, f * 1.6), when + 0.25);
       const g = ctx.createGain();
+      const end = when + dur;
       g.gain.setValueAtTime(0, when);
-      g.gain.linearRampToValueAtTime(0.05, when + 0.5);
-      g.gain.setValueAtTime(0.05, when + dur - 0.1);
-      g.gain.linearRampToValueAtTime(0, when + dur + 0.6);
+      g.gain.linearRampToValueAtTime(vel, when + 0.004);
+      g.gain.exponentialRampToValueAtTime(vel * 0.35, when + 0.18);
+      g.gain.setValueAtTime(vel * 0.35, end);
+      g.gain.exponentialRampToValueAtTime(0.0001, end + 0.09);   // 손바닥으로 살짝 뮤트
+      o1.connect(lp); o2.connect(mix2).connect(lp);
       lp.connect(g).connect(gain);
-      for (const n of notes) {
-        const o = ctx.createOscillator();
-        o.type = 'triangle';
-        o.frequency.value = freq(n);
-        o.detune.value = (Math.random() - 0.5) * 8;
-        o.connect(lp);
-        o.start(when);
-        o.stop(when + dur + 0.7);
-      }
-      // 마디 첫 박의 낮은 베이스
-      const b = ctx.createOscillator();
-      const bg = ctx.createGain();
-      b.type = 'sine';
-      b.frequency.value = freq(notes[0]) / 2;
-      bg.gain.setValueAtTime(0, when);
-      bg.gain.linearRampToValueAtTime(0.16, when + 0.02);
-      bg.gain.exponentialRampToValueAtTime(0.0001, when + Math.min(2.2, dur + 0.4));
-      b.connect(bg).connect(gain);
-      b.start(when);
-      b.stop(when + 2.4);
+      o1.start(when); o2.start(when);
+      o1.stop(end + 0.12); o2.stop(end + 0.12);
     }
 
-    function load(song, start) {
-      events = [];
-      let t = start;
-      for (const tok of song.melody.trim().split(/\s+/)) {
-        const [n, len] = tok.split(':');
-        events.push({ t, kind: 'note', f: freq(n), vel: 0.16 + Math.random() * 0.03 });
-        t += Number(len) * song.unit;
+    function strum(voicing, when, dur, vel) {
+      voicing.forEach((f, i) => pluck(f, when + i * 0.011, dur, vel * (i === 0 ? 0.8 : 1)));
+    }
+
+    function bass(f, when, dur) {                            // 엄지로 치는 낮은 줄
+      const o = ctx.createOscillator(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+      o.type = 'triangle'; o.frequency.value = f;
+      lp.type = 'lowpass'; lp.frequency.value = 520;
+      g.gain.setValueAtTime(0, when);
+      g.gain.linearRampToValueAtTime(0.32, when + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.12, when + 0.3);
+      g.gain.setValueAtTime(0.12, when + dur);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + dur + 0.08);
+      o.connect(lp).connect(g).connect(gain);
+      o.start(when); o.stop(when + dur + 0.1);
+    }
+
+    function vibes(f, when, dur) {                           // 비브라폰 멜로디
+      const g = ctx.createGain();
+      const len = Math.min(2.2, dur + 0.6);
+      g.gain.setValueAtTime(0, when);
+      g.gain.linearRampToValueAtTime(0.085, when + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.03, when + dur);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + len);
+      const trem = ctx.createGain(); trem.gain.value = 1;     // 은은한 떨림
+      const lfo = ctx.createOscillator(), depth = ctx.createGain();
+      lfo.frequency.value = 5.2; depth.gain.value = 0.18;
+      lfo.connect(depth).connect(trem.gain);
+      g.connect(trem).connect(gain);
+      for (const [mul, amp] of [[1, 1], [4, 0.08], [10, 0.02]]) {
+        const o = ctx.createOscillator(), a = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f * mul; a.gain.value = amp;
+        o.connect(a).connect(g);
+        o.start(when); o.stop(when + len + 0.05);
       }
-      const barDur = song.bar * song.unit;
-      song.chords.split(' ').forEach((c, i) => {
-        events.push({ t: start + i * barDur, kind: 'chord', notes: CHORDS[c], dur: barDur });
-      });
-      events.sort((a, b) => a.t - b.t);
-      evIdx = 0;
-      songEnd = Math.max(t, start + song.chords.split(' ').length * barDur);
+      lfo.start(when); lfo.stop(when + len + 0.05);
+    }
+
+    function hit(when, { hp, q = 0.8, vel, len }) {          // 셰이커·림샷용 잡음 조각
+      if (!noise) {
+        const n = Math.floor(ctx.sampleRate * 0.2);
+        noise = ctx.createBuffer(1, n, ctx.sampleRate);
+        const d = noise.getChannelData(0);
+        for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      }
+      const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = noise;
+      f.type = 'bandpass'; f.frequency.value = hp; f.Q.value = q;
+      g.gain.setValueAtTime(0, when);
+      g.gain.linearRampToValueAtTime(vel, when + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + len);
+      src.connect(f).connect(g).connect(gain);
+      src.start(when, Math.random() * 0.1); src.stop(when + len + 0.02);
+    }
+
+    function scheduleBar(t) {
+      const b = BARS[bar];
+      COMP[bar % 2].forEach((s) => strum(b.voicing, t + s * STEP + human(), STEP * 1.6, 0.05));
+      BASS.forEach(([s, which, len]) => bass(b[which], t + s * STEP, len * STEP * 0.9));
+      for (let s = 0; s < 16; s++) {
+        hit(t + s * STEP + human(), { hp: 6500, vel: s % 4 === 2 ? 0.05 : 0.022, len: 0.06 });
+      }
+      CLAVE.forEach((s) => hit(t + s * STEP, { hp: 1800, q: 6, vel: 0.12, len: 0.035 }));
+      if (loop % 2 === 0) {
+        MELODY[bar].forEach((n) => vibes(n.f, t + n.at * STEP + human(), n.len * STEP));
+      }
+      bar = (bar + 1) % BARS.length;
+      if (bar === 0) loop++;
     }
 
     function tick() {
       if (!ready()) return;
-      const horizon = ctx.currentTime + 0.6;
-      while (evIdx < events.length && events[evIdx].t < horizon) {
-        const e = events[evIdx++];
-        if (e.t < ctx.currentTime - 0.05) continue;    // 늦은 음은 건너뜀
-        if (e.kind === 'note') chime(e.f, e.t, e.vel);
-        else pad(e.notes, e.t, e.dur);
-      }
-      if (evIdx >= events.length && ctx.currentTime > songEnd - 0.6) {
-        songIdx = (songIdx + 1) % SONGS.length;
-        load(SONGS[songIdx], Math.max(songEnd, ctx.currentTime) + 2.5);   // 곡 사이 쉼
+      if (nextBar < ctx.currentTime - 0.1) nextBar = ctx.currentTime + 0.1;   // 탭이 멈췄다 돌아오면 다시 맞춤
+      while (nextBar < ctx.currentTime + 0.8) {
+        scheduleBar(nextBar);
+        nextBar += 16 * STEP;
       }
     }
 
@@ -287,8 +324,8 @@ window.Sound = (() => {
       gain.gain.value = 0;
       gain.gain.linearRampToValueAtTime(muted ? 0 : 0.55, ctx.currentTime + 3);   // 서서히 들어옴
       gain.connect(out);
-      load(SONGS[songIdx], ctx.currentTime + 1.2);
-      timer = setInterval(tick, 120);
+      nextBar = ctx.currentTime + 0.6;
+      timer = setInterval(tick, 150);
       tick();
     }
 

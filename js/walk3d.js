@@ -1107,8 +1107,9 @@ const BIG_TREES = [
   { name: 'Feeling', glow: '#ff8fc7', colors: ['#ff8fc7', '#ffc2e0', '#ffffff'] },
   { name: 'Wish',    glow: '#8fb8ff', colors: ['#8fb8ff', '#c9a6ff', '#ffffff'] },
 ];
-const TREE = { TOP: 3.1, BASE: 0.55, R0: 1.15, SCALE: 1.6, GROW: 0.018, MAX_CARDS: 40 };
-const treeScaleFor = (n) => TREE.SCALE * (1 + Math.min(n, TREE.MAX_CARDS) * TREE.GROW);   // 40장이면 약 1.7배
+const TREE = { TOP: 3.1, BASE: 0.55, R0: 1.15, SCALE: 1.6, GROW: 1.2, GROW_N: 12, MAX_CARDS: 40 };
+// 처음 몇 장은 눈에 띄게 쑥쑥, 많아질수록 천천히 (1장 +10%, 5장 +40%, 12장 +76%, 40장 약 2.2배 — 옆 트리와 닿지 않는 한도)
+const treeScaleFor = (n) => TREE.SCALE * (1 + TREE.GROW * (1 - Math.exp(-n / TREE.GROW_N)));
 {
   const RADIUS = PLAZA.TREE_R;
   const treeMat = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -1737,6 +1738,15 @@ function ornGeo(im) {
 }
 const stringMat = new THREE.LineBasicMaterial({ color: 0xd8b56a });
 
+// 걸린 카드마다 다른 색으로 빛남 (크리스마스 전구 색). 카드 id로 정해서 새로고침해도 같은 색
+const CARD_LIGHTS = [0xffb43c, 0xff4d4d, 0x4dff88, 0x4da6ff, 0xff6fd0, 0xb07dff, 0xffe066, 0x40e0d0];
+function cardLight(card) {
+  const key = String(card.id ?? Math.random());
+  let h = 0;
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return new THREE.Color(CARD_LIGHTS[h % CARD_LIGHTS.length]);
+}
+
 async function addOrnament(info, card, slotIndex, animate) {
   const [front, back, im] = await ornamentTextures(card);
   const geo = ornGeo(im);
@@ -1759,13 +1769,14 @@ async function addOrnament(info, card, slotIndex, animate) {
   b.rotation.y = Math.PI;
   f.castShadow = b.castShadow = true;
   // 카드가 스스로 빛나도록: 양면 모두 자체 발광 + 뒤로 은은한 빛 번짐
+  const light = cardLight(card);
   for (const [m, tex] of [[f, front], [b, back]]) {
-    m.material.emissive = new THREE.Color(0xd8c6ae);
+    m.material.emissive = new THREE.Color(0xd8c6ae).lerp(light, 0.35);   // 종이도 그 빛을 살짝 머금음
     m.material.emissiveMap = tex;
   }
   const h = geo.parameters.height;
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: cardGlowTex, color: new THREE.Color(info.glow).lerp(new THREE.Color(0xfff2d6), 0.45),
+    map: cardGlowTex, color: light,
     transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, opacity: 0.7,
   }));
   halo.renderOrder = 2;
@@ -2255,7 +2266,7 @@ function start() {
     if (!state.moved) hint.classList.add('is-on');
   }, 1200);
 
-  // 배경 캐럴: 소리가 켜져 있으면 바로, 아니면 첫 탭/키 입력 때 시작
+  // 배경 음악(보사노바): 소리가 켜져 있으면 바로, 아니면 첫 탭/키 입력 때 시작
   window.Sound && Sound.music.start();
   musicBtn.classList.add('is-on');
 }
@@ -2277,8 +2288,40 @@ requestAnimationFrame(frame);
 /* ───────── 클럽 입장: 멤버 번호 받기 → 트리 카드 불러오기 ───────── */
 const memberEl = document.querySelector('.member');
 const welcomeEl = document.querySelector('.welcome');
+/* 캐릭터 머리 위 이름표: 멤버 번호(Club Member 03) — 접속자가 여럿이라 번호로 구분 */
+const nameTag = (() => {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 128;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
+  s.renderOrder = 10;                                      // 나무 뒤에 있어도 이름은 보이게
+  s.raycast = () => {};
+  const top = new THREE.Box3().setFromObject(hero.root).max.y - hero.root.position.y;
+  s.position.y = top + 0.32;
+  hero.root.add(s);
+  return {
+    set(text) {
+      const g = c.getContext('2d');
+      g.clearRect(0, 0, c.width, c.height);
+      g.font = 'italic 46px Georgia, "Times New Roman", serif';
+      const w = Math.min(c.width - 8, g.measureText(text).width + 56);
+      const x = (c.width - w) / 2, y = 30, h = 68;
+      g.fillStyle = 'rgba(0, 20, 70, 0.55)';
+      g.strokeStyle = 'rgba(255, 220, 160, 0.6)';
+      g.lineWidth = 3;
+      g.beginPath(); g.roundRect(x, y, w, h, h / 2); g.fill(); g.stroke();
+      g.fillStyle = '#fff3dc';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(text, c.width / 2, y + h / 2 + 2, c.width - 40);
+      tex.needsUpdate = true;
+      s.scale.set(2.3, 0.575, 1);
+    },
+  };
+})();
 const joined = club.join().then(async (me) => {
   memberEl.innerHTML = `December Club · <b>${club.memberName(me.no)}</b>`;
+  nameTag.set(club.memberName(me.no));
   memberEl.title = club.isOnline() ? '' : '서버 없이 열려 이 브라우저에만 저장돼요';
   await syncAll(false);
   if (club.isOnline()) setInterval(() => { if (!document.hidden) syncAll(true); }, 8000);

@@ -186,9 +186,10 @@ window.Sound = (() => {
     c.start(now + 0.05); c.stop(now + 0.1);
   }
 
-  /* ───────── 배경 음악: 잔잔한 보사노바 (직접 만든 곡, Web Audio 합성) ─────────
+  /* ───────── 배경 음악: 보사노바 + 캐롤 (Web Audio 합성) ─────────
      - 나일론 기타 컴핑(엇박 리듬) + 엄지 베이스 + 셰이커·림샷 + 비브라폰 멜로디
-     - 16마디를 반복, 멜로디는 한 번 걸러 한 번만 나와서 덜 지루하게 */
+     - 캐롤(징글벨 → 직접 만든 보사노바 → 덱 더 홀스 → 직접 만든 곡 …) 순서로 16마디씩 번갈아 연주
+     - 캐롤은 공개 저작물 선율을 보사노바 화음으로 다시 붙였고, 썰매 방울과 높은 첼레스타가 살짝 더해짐 */
   const SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
   const freq = (n) => {
     const m = /^([A-G])(#|b)?(\d)$/.exec(n);
@@ -197,40 +198,69 @@ window.Sound = (() => {
   };
 
   const STEP = 0.112;                 // 16분음표 길이(초) — 약 134 BPM
-  // 마디별 화음: [베이스 근음, 5음, 기타 보이싱]
-  const BARS = [
-    ['C2', 'G2', 'C3 G3 B3 E4'],     // Cmaj7
-    ['A1', 'E2', 'A2 G3 C4 E4'],     // Am7
-    ['D2', 'A2', 'D3 F3 C4 E4'],     // Dm9
-    ['G1', 'D2', 'G2 F3 B3 E4'],     // G13
-    ['E2', 'B2', 'E3 B3 D4 G4'],     // Em7
-    ['A1', 'E2', 'A2 C#3 G3 Bb3'],   // A7(b9)
-    ['D2', 'A2', 'D3 F3 C4 E4'],     // Dm9
-    ['G1', 'D2', 'G2 F3 B3 D4'],     // G7
-    ['F2', 'C3', 'F3 A3 C4 E4'],     // Fmaj7
-    ['F2', 'C3', 'F3 Ab3 C4 D4'],    // Fm6
-    ['E2', 'B2', 'E3 B3 D4 G4'],     // Em7
-    ['A1', 'E2', 'A2 C#3 G3 Bb3'],   // A7(b9)
-    ['D2', 'A2', 'D3 F3 C4 E4'],     // Dm9
-    ['G1', 'D2', 'G2 F3 B3 E4'],     // G13
-    ['C2', 'G2', 'C3 E3 B3 D4'],     // Cmaj9
-    ['C2', 'G2', 'C3 E3 A3 D4'],     // C6/9
-  ].map(([r, f, v]) => ({ root: freq(r), fifth: freq(f), voicing: v.split(' ').map(freq) }));
-
+  // 화음 사전: [베이스 근음, 5음, 기타 보이싱]
+  const CHORDS = {
+    Cmaj7:  ['C2', 'G2', 'C3 G3 B3 E4'],
+    Cmaj9:  ['C2', 'G2', 'C3 E3 B3 D4'],
+    C69:    ['C2', 'G2', 'C3 E3 A3 D4'],
+    C9:     ['C2', 'G2', 'C3 E3 Bb3 D4'],
+    Am7:    ['A1', 'E2', 'A2 G3 C4 E4'],
+    A7b9:   ['A1', 'E2', 'A2 C#3 G3 Bb3'],
+    Dm9:    ['D2', 'A2', 'D3 F3 C4 E4'],
+    D9:     ['D2', 'A2', 'D3 F#3 C4 E4'],
+    G13:    ['G1', 'D2', 'G2 F3 B3 E4'],
+    G13sus: ['G1', 'D2', 'G2 F3 C4 E4'],
+    G7:     ['G1', 'D2', 'G2 F3 B3 D4'],
+    Em7:    ['E2', 'B2', 'E3 B3 D4 G4'],
+    Fmaj7:  ['F2', 'C3', 'F3 A3 C4 E4'],
+    Fm6:    ['F2', 'C3', 'F3 Ab3 C4 D4'],
+    Bb7s11: ['Bb1', 'F2', 'Bb2 Ab3 D4 E4'],
+  };
+  const chords = (list) => list.trim().split(/\s+/).map((name) => {
+    const [r, f, v] = CHORDS[name];
+    return { root: freq(r), fifth: freq(f), voicing: v.split(' ').map(freq) };
+  });
   // 멜로디 (음:16분음표 개수, R은 쉼표) — 마디마다 16칸
-  const MELODY = `R:2 E5:2 G5:3 E5:1 D5:4 C5:4 | B4:6 A4:2 G4:8 | R:2 F4:2 A4:2 C5:2 E5:6 D5:2 | D5:3 C5:3 B4:2 E5:8 |
-    R:4 G4:2 B4:2 D5:3 B4:1 G4:4 | Bb4:6 A4:2 C#5:8 | D5:3 E5:3 F5:2 A5:6 G5:2 | F5:4 E5:4 D5:8 |
-    R:2 C5:2 E5:2 A5:2 G5:8 | R:2 Ab4:2 C5:2 F5:2 D5:8 | R:2 B4:2 D5:2 G5:2 E5:8 | C#5:3 E5:3 G5:2 Bb5:8 |
-    A5:4 F5:4 E5:4 D5:4 | E5:6 D5:2 B4:8 | R:4 D5:4 E5:8 | R:16`
-    .split('|').map((bar) => {
-      const notes = []; let at = 0;
-      for (const tok of bar.trim().split(/\s+/)) {
-        const [n, len] = tok.split(':');
-        if (n !== 'R') notes.push({ at, len: Number(len), f: freq(n) });
-        at += Number(len);
-      }
-      return notes;
-    });
+  const melody = (text) => text.split('|').map((bar) => {
+    const notes = []; let at = 0;
+    for (const tok of bar.trim().split(/\s+/)) {
+      const [n, len] = tok.split(':');
+      if (n !== 'R') notes.push({ at, len: Number(len), f: freq(n) });
+      at += Number(len);
+    }
+    return notes;
+  });
+
+  const SONGS = [
+    { // Jingle Bells (후렴, 공개 저작물) — 보사노바 화음
+      carol: true,
+      bars: chords('Cmaj7 Am7 Dm9 G13 Fmaj7 Bb7s11 D9 G13 Cmaj7 Am7 Dm9 C9 Fmaj7 Bb7s11 G13 C69'),
+      melody: melody(`E5:4 E5:4 E5:8 | E5:4 E5:4 E5:8 | E5:4 G5:4 C5:6 D5:2 | E5:16 |
+        F5:4 F5:4 F5:6 F5:2 | F5:4 E5:4 E5:4 E5:2 E5:2 | E5:4 D5:4 D5:4 E5:4 | D5:8 G5:8 |
+        E5:4 E5:4 E5:8 | E5:4 E5:4 E5:8 | E5:4 G5:4 C5:6 D5:2 | E5:16 |
+        F5:4 F5:4 F5:6 F5:2 | F5:4 E5:4 E5:4 E5:2 E5:2 | G5:4 G5:4 F5:4 D5:4 | C5:16`),
+    },
+    { // 직접 만든 보사노바
+      carol: false,
+      bars: chords('Cmaj7 Am7 Dm9 G13 Em7 A7b9 Dm9 G7 Fmaj7 Fm6 Em7 A7b9 Dm9 G13 Cmaj9 C69'),
+      melody: melody(`R:2 E5:2 G5:3 E5:1 D5:4 C5:4 | B4:6 A4:2 G4:8 | R:2 F4:2 A4:2 C5:2 E5:6 D5:2 | D5:3 C5:3 B4:2 E5:8 |
+        R:4 G4:2 B4:2 D5:3 B4:1 G4:4 | Bb4:6 A4:2 C#5:8 | D5:3 E5:3 F5:2 A5:6 G5:2 | F5:4 E5:4 D5:8 |
+        R:2 C5:2 E5:2 A5:2 G5:8 | R:2 Ab4:2 C5:2 F5:2 D5:8 | R:2 B4:2 D5:2 G5:2 E5:8 | C#5:3 E5:3 G5:2 Bb5:8 |
+        A5:4 F5:4 E5:4 D5:4 | E5:6 D5:2 B4:8 | R:4 D5:4 E5:8 | R:16`),
+    },
+    { // Deck the Halls (공개 저작물) — 보사노바 화음
+      carol: true,
+      bars: chords('Cmaj7 Am7 Dm9 G13sus Cmaj7 Am7 Dm9 Cmaj9 Dm9 Em7 D9 G13 Cmaj7 Am7 Fmaj7 C69'),
+      melody: melody(`G5:6 F5:2 E5:4 D5:4 | C5:4 D5:4 E5:4 C5:4 | D5:2 E5:2 F5:2 D5:2 E5:6 D5:2 | C5:4 B4:4 C5:8 |
+        G5:6 F5:2 E5:4 D5:4 | C5:4 D5:4 E5:4 C5:4 | D5:2 E5:2 F5:2 D5:2 E5:6 D5:2 | C5:4 B4:4 C5:8 |
+        D5:6 E5:2 F5:4 D5:4 | E5:6 F5:2 G5:4 D5:4 | E5:2 F#5:2 G5:4 A5:2 B5:2 C6:4 | B5:4 A5:4 G5:8 |
+        G5:6 F5:2 E5:4 D5:4 | C5:4 D5:4 E5:4 C5:4 | A5:2 A5:2 A5:2 A5:2 G5:6 F5:2 | E5:4 D5:4 C5:8`),
+    },
+    { // 직접 만든 보사노바 (한 번 더)
+      carol: false,
+      ref: 1,
+    },
+  ].map((song, _, all) => (song.ref != null ? { ...all[song.ref], carol: song.carol } : song));
 
   // 리듬 패턴 (16칸 중 소리 나는 자리)
   const COMP = [[0, 3, 6, 10, 12], [2, 6, 8, 12, 14]];      // 기타: 두 마디가 한 쌍
@@ -239,7 +269,7 @@ window.Sound = (() => {
 
   const music = (() => {
     let gain = null, wanted = false, playing = false, muted = false;
-    let bar = 0, loop = 0, nextBar = 0, timer = null, noise = null;
+    let bar = 0, song = 0, nextBar = 0, timer = null, noise = null;
     const human = () => (Math.random() - 0.5) * 0.012;      // 사람이 치는 듯 살짝 어긋나게
 
     function pluck(f, when, dur, vel) {                      // 나일론 기타 한 줄
@@ -281,12 +311,12 @@ window.Sound = (() => {
       o.start(when); o.stop(when + dur + 0.1);
     }
 
-    function vibes(f, when, dur) {                           // 비브라폰 멜로디
+    function vibes(f, when, dur, vol = 0.085) {              // 비브라폰 멜로디
       const g = ctx.createGain();
       const len = Math.min(2.2, dur + 0.6);
       g.gain.setValueAtTime(0, when);
-      g.gain.linearRampToValueAtTime(0.085, when + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.03, when + dur);
+      g.gain.linearRampToValueAtTime(vol, when + 0.01);
+      g.gain.exponentialRampToValueAtTime(vol * 0.35, when + dur);
       g.gain.exponentialRampToValueAtTime(0.0001, when + len);
       const trem = ctx.createGain(); trem.gain.value = 1;     // 은은한 떨림
       const lfo = ctx.createOscillator(), depth = ctx.createGain();
@@ -319,19 +349,28 @@ window.Sound = (() => {
       src.start(when, Math.random() * 0.1); src.stop(when + len + 0.02);
     }
 
+    function sleighBells(when) {                             // 썰매 방울: 짧게 여러 번 흔들림
+      for (let k = 0; k < 4; k++) {
+        hit(when + k * 0.018 + Math.random() * 0.006, { hp: 8200 + Math.random() * 1500, q: 3, vel: 0.03 * (1 - k * 0.2), len: 0.09 });
+      }
+    }
+
     function scheduleBar(t) {
-      const b = BARS[bar];
+      const S = SONGS[song], b = S.bars[bar];
       COMP[bar % 2].forEach((s) => strum(b.voicing, t + s * STEP + human(), STEP * 1.6, 0.05));
       BASS.forEach(([s, which, len]) => bass(b[which], t + s * STEP, len * STEP * 0.9));
       for (let s = 0; s < 16; s++) {
         hit(t + s * STEP + human(), { hp: 6500, vel: s % 4 === 2 ? 0.05 : 0.022, len: 0.06 });
       }
       CLAVE.forEach((s) => hit(t + s * STEP, { hp: 1800, q: 6, vel: 0.12, len: 0.035 }));
-      if (loop % 2 === 0) {
-        MELODY[bar].forEach((n) => vibes(n.f, t + n.at * STEP + human(), n.len * STEP));
-      }
-      bar = (bar + 1) % BARS.length;
-      if (bar === 0) loop++;
+      S.melody[bar].forEach((n) => {
+        const at = t + n.at * STEP + human();
+        vibes(n.f, at, n.len * STEP);
+        if (S.carol) vibes(n.f * 2, at + 0.004, n.len * STEP, 0.022);   // 캐롤엔 한 옥타브 위 첼레스타를 살짝
+      });
+      if (S.carol) [4, 12].forEach((s) => sleighBells(t + s * STEP + human()));
+      bar = (bar + 1) % S.bars.length;
+      if (bar === 0) song = (song + 1) % SONGS.length;
     }
 
     function tick() {

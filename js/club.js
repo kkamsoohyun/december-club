@@ -1,5 +1,6 @@
 /* 클럽 멤버 번호와 공유 카드
-   - 처음 입장하면 Club Member 01, 02 … 순서대로 번호를 받음
+   - 처음 입장하면 Club Member 01, 02 … 순서대로 번호를 받고, 닉네임을 정함
+   - 닉네임을 아직 모르는 멤버는 'Club Member 01'처럼 번호로 보임
    - 저장소: Supabase(config.js에 키가 있으면) → server.py(/api) → 이 브라우저만(혼자 모드)
    - 이 브라우저는 번호를 기억해서 다시 와도 같은 번호
    - 카드는 서버에 저장되어 모든 멤버가 같은 트리를 봄
@@ -11,10 +12,14 @@ const ME_KEY = 'december-club.member';
 const SB = SUPABASE.url && SUPABASE.anonKey ? SUPABASE.url.replace(/\/+$/, '') : null;
 const LOCAL_KEY = (tree) => `december-club.cards.${tree}`;
 
-let me = null;              // { no, token, local }
+let me = null;              // { no, token, local, nickname }
 let online = false;
+const names = new Map();    // 번호 → 닉네임
 
-export const memberName = (no) => `Club Member ${String(no ?? 0).padStart(2, '0')}`;
+export const memberName = (no) => names.get(Number(no)) || `Club Member ${String(no ?? 0).padStart(2, '0')}`;
+export const needsNickname = () => !me?.nickname;
+export const NICK_MAX = 12;
+export const cleanNickname = (s) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, NICK_MAX);
 export const getMe = () => me;
 export const isOnline = () => online;
 export const isMine = (card) => !!me && (online ? card.member === me.no : true);
@@ -82,6 +87,13 @@ async function sbApi(method, url, body) {
     });
     return { card: fromRow(row) };
   }
+  if (url === '/api/member/name') {
+    return { name: await sb('rpc/set_nickname', { p_token: body.token, p_name: body.name }) };
+  }
+  if (url === '/api/members/names') {
+    const rows = await sb('rpc/member_names', {});
+    return { names: Object.fromEntries(rows.map((r) => [r.no, r.nickname])) };
+  }
   if (url === '/api/cards' && method === 'DELETE') {
     const ok = await sb('rpc/remove_card', { p_token: body.token, p_id: body.id });
     if (!ok) { const e = new Error('not yours'); e.status = 403; throw e; }
@@ -94,21 +106,58 @@ async function sbApi(method, url, body) {
 export async function join() {
   const saved = read(ME_KEY);
   try {
+    let ok = false;
     if (saved?.token && !saved.local) {
       try {
         await api('POST', '/api/member/check', { token: saved.token });
-        me = saved; online = true; return me;
+        me = saved; online = true; ok = true;
       } catch (e) { if (e.status !== 404) throw e; }      // 서버 기록이 지워졌으면 새로 받음
     }
-    const { no, token } = await api('POST', '/api/member', {});
-    me = { no, token }; online = true;
-    write(ME_KEY, me);
+    if (!ok) {
+      const { no, token } = await api('POST', '/api/member', {});
+      me = { no, token }; online = true;
+      write(ME_KEY, me);
+    }
   } catch {
     online = false;
     me = saved?.local ? saved : { no: 1, local: true };
     write(ME_KEY, me);
   }
+  if (me.nickname) names.set(me.no, me.nickname);
+  if (online) await refreshNames();
+  // 다른 기기에서 정한 닉네임이 서버에 있으면 그걸 씀
+  if (!me.nickname && names.has(me.no)) { me.nickname = names.get(me.no); write(ME_KEY, me); }
   return me;
+}
+
+/** 닉네임 정하기/바꾸기 → 정해진 이름 */
+export async function setNickname(raw) {
+  const name = cleanNickname(raw);
+  if (!name) throw new Error('empty');
+  let saved = name;
+  if (online) {
+    try { saved = (await api('POST', '/api/member/name', { token: me.token, name })).name || name; }
+    catch (e) { if (e.status === 403 || e.status === 400) throw e; }   // 서버에 닉네임 기능이 아직 없으면 이 브라우저에만
+  }
+  me.nickname = saved;
+  names.set(me.no, saved);
+  write(ME_KEY, me);
+  return saved;
+}
+
+/** 모든 멤버의 닉네임 다시 받기 → 바뀐 게 있으면 true */
+let namesMissing = false;   // 서버에 닉네임 기능이 아직 없으면 다시 묻지 않음
+export async function refreshNames() {
+  if (!online || namesMissing) return false;
+  let got;
+  try { got = (await api('GET', '/api/members/names')).names || {}; }
+  catch (e) { if (e.status === 404) namesMissing = true; return false; }
+  let changed = false;
+  for (const [no, name] of Object.entries(got)) {
+    if (names.get(Number(no)) !== name) { names.set(Number(no), name); changed = true; }
+  }
+  if (me?.nickname && !(me.no in got)) names.set(me.no, me.nickname);   // 서버에 아직 없으면 내 것은 그대로
+  return changed;
 }
 
 export async function fetchCards(tree) {

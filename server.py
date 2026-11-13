@@ -6,6 +6,8 @@
 
   POST   /api/member                    새 입장자에게 번호 발급 → {no, token}
   POST   /api/member/check {token}      내 번호 다시 확인 → {no}
+  POST   /api/member/name {token, name} 닉네임 정하기 → {name}
+  GET    /api/members/names             번호 → 닉네임 목록 {names}
   GET    /api/cards?tree=Friends        그 트리에 걸린 카드 목록
   POST   /api/cards                     카드 걸기 {token, tree, category, question, answer, slot}
   DELETE /api/cards {id, token}         내가 건 카드 떼기
@@ -27,6 +29,7 @@ DATA = os.path.join(DATA_DIR, "club.json")
 TREES = {"Friends", "Family", "Growth", "Feeling", "Wish"}
 MAX_ANSWER = 300
 MAX_SLOTS = 200
+MAX_NICK = 12
 lock = threading.Lock()
 
 
@@ -92,6 +95,9 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path, q = self.route()
+        if path == "/api/members/names":
+            with lock:
+                return self.reply(200, {"names": load().get("names", {})})
         if path == "/api/cards":
             tree = q.get("tree")
             with lock:
@@ -108,6 +114,18 @@ class Handler(SimpleHTTPRequestHandler):
             with lock:
                 no = load()["members"].get(str(data.get("token", "")))
             return self.reply(200, {"no": no}) if no else self.reply(404, {"error": "unknown"})
+        if path == "/api/member/name":
+            name = " ".join(str(data.get("name", "")).split())[:MAX_NICK]
+            if not name:
+                return self.reply(400, {"error": "empty nickname"})
+            with lock:
+                db = load()
+                no = db["members"].get(str(data.get("token", "")))
+                if not no:
+                    return self.reply(403, {"error": "unknown member"})
+                db.setdefault("names", {})[str(no)] = name
+                save(db)
+            return self.reply(200, {"name": name})
         if path == "/api/member":
             with lock:
                 db = load()

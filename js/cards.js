@@ -14,6 +14,10 @@ export const CARD_STYLES = {
   Wish:    { front: 'assets/wish.webp', back: 'assets/wish.webp', w: 1177, h: 1137 },
 };
 
+// 저장되는 트리 이름(키)과 화면에 보이는 이름 — Feeling 트리는 'Discovery'로 보여 줌 (저장된 카드는 그대로)
+const TREE_LABELS = { Feeling: 'Discovery' };
+export const treeLabel = (tree) => TREE_LABELS[tree] || tree;
+
 export const cardStyle = (tree) => CARD_STYLES[tree] || CARD_STYLES.Friends;
 
 const loadImg = (src) => new Promise((res) => {

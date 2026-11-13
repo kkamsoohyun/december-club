@@ -27,6 +27,12 @@
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
   <style>
     @font-face {
+      font-family: 'GeuriunXKukhanbakTture';
+      src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2607161334@x-7/x/GriunXHangeulDDURAE-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-display: swap;
+    }
+    @font-face {
       font-family: 'ChosunIlboMyungjo';
       src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff');
       font-weight: normal;
@@ -329,8 +335,59 @@
       opacity: 0;
       transition: opacity .8s ease;
       pointer-events: none;
+      cursor: pointer;
     }
-    .member.is-on { opacity: 1; }
+    .member.is-on { opacity: 1; pointer-events: auto; }
+    .member.is-on:hover { border-color: rgba(255, 220, 160, 0.8); }
+    .member::after { content: ' ✎'; font-style: normal; font-size: 0.85em; opacity: 0.6; }
+
+    /* ── 닉네임 정하기 ── */
+    .nick {
+      position: fixed; inset: 0; z-index: 30;
+      display: grid; place-items: center;
+      padding: 16px;
+      background: rgba(4, 14, 44, 0.55);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      animation: nick-in .5s ease both;
+    }
+    .nick[hidden] { display: none; }
+    @keyframes nick-in { from { opacity: 0; } }
+    .nick__card {
+      width: min(360px, 100%);
+      padding: 28px 24px 22px;
+      border-radius: 16px;
+      background: #fbf5ea;
+      border: 2px solid rgba(194, 69, 63, 0.55);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+      text-align: center;
+      color: #5b2a24;
+      font-family: 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+    }
+    .nick__title { margin: 0 0 8px; font-size: 20px; font-weight: normal; color: #c2453f; }
+    .nick__desc { margin: 0 0 18px; font-size: 13px; line-height: 1.6; opacity: 0.8; word-break: keep-all; }
+    .nick__input {
+      width: 100%; box-sizing: border-box;
+      padding: 12px 14px;
+      border: 1px solid rgba(194, 69, 63, 0.45);
+      border-radius: 10px;
+      background: #fffdf8;
+      color: #5b2a24;
+      font: 20px 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', serif;
+      text-align: center;
+      outline: none;
+    }
+    .nick__input:focus { border-color: #c2453f; box-shadow: 0 0 0 3px rgba(194, 69, 63, 0.15); }
+    .nick__err { min-height: 1.4em; margin: 8px 0 4px; font-size: 12px; color: #c2453f; }
+    .nick__actions { display: flex; gap: 8px; justify-content: center; }
+    .nick__actions button {
+      padding: 10px 22px; border-radius: 999px; cursor: pointer;
+      font: 15px/1 'ChosunIlboMyungjo', Georgia, serif;
+    }
+    .nick__go { border: 0; background: #c2453f; color: #fff6ea; }
+    .nick__go:disabled { opacity: 0.6; cursor: default; }
+    .nick__cancel { border: 1px solid rgba(194, 69, 63, 0.5); background: transparent; color: #c2453f; }
+    .nick[data-first] .nick__cancel { display: none; }
     .member { white-space: nowrap; }
     /* 좁은 화면: 배지를 작게, 안내 문구는 배지 아래로 */
     @media (max-width: 640px) {
@@ -389,7 +446,7 @@
       justify-content: center;
       gap: 18px;
       padding: 16px;
-      font-family: 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+      font-family: 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
     }
     .letter-modal[hidden] { display: none; }
     .letter-modal__backdrop {
@@ -530,7 +587,7 @@
         repeating-linear-gradient(to bottom, transparent 0, transparent calc(2.05em - 1px), rgba(194, 69, 63, 0.28) calc(2.05em - 1px), rgba(194, 69, 63, 0.28) 2.05em);
       background-attachment: local;
       color: var(--paper-ink);
-      font: 4.4cqw/2.05em 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+      font: 4.4cqw/2.05em 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
       text-align: left;
       word-break: keep-all;
       white-space: pre-wrap;
@@ -681,7 +738,7 @@
       background: #fbf5ea;
       color: var(--paper-ink);
       box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-      font-family: 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+      font-family: 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
     }
     .answers__q { margin: 0 0 12px; color: var(--paper-red); font-size: 16px; line-height: 1.55; text-align: center; word-break: keep-all; }
     .answers__list { list-style: none; margin: 0; padding: 0 4px; overflow-y: auto; flex: 1; }
@@ -731,7 +788,19 @@
 
     <button class="music" type="button" aria-pressed="true" data-i18n-attr="aria-label=btn.music, title=btn.music">♪</button>
     <button class="lang" type="button" data-i18n-attr="aria-label=btn.lang, title=btn.lang"><span lang="ko">KO</span><span lang="en">EN</span></button>
-    <p class="member" aria-live="polite"></p>
+    <button class="member" type="button" aria-live="polite" data-i18n-attr="title=nick.change"></button>
+    <form class="nick" hidden novalidate role="dialog" aria-modal="true" aria-labelledby="nick-title">
+      <div class="nick__card">
+        <h2 id="nick-title" class="nick__title" data-i18n="nick.title">닉네임을 정해 주세요</h2>
+        <p class="nick__desc" data-i18n="nick.desc">트리에 거는 카드와 캐릭터 머리 위에 이 이름이 보여요</p>
+        <input class="nick__input" name="nick" type="text" maxlength="12" autocomplete="nickname" enterkeyhint="go" spellcheck="false" data-i18n-attr="placeholder=nick.placeholder, aria-label=nick.title" />
+        <p class="nick__err" role="alert"></p>
+        <div class="nick__actions">
+          <button class="nick__cancel" type="button" data-i18n="nick.cancel">취소</button>
+          <button class="nick__go" type="submit" data-i18n="nick.go">입장하기</button>
+        </div>
+      </div>
+    </form>
     <p class="welcome" aria-hidden="true"></p>
     <button class="nearby" type="button">✦ Friends<kbd>E</kbd></button>
 

@@ -3,9 +3,9 @@
    - 다 쓰면 "트리에 달기" → 트리에 걸린 카드는 다시 눌러서 볼 수 있음
    - 저장은 club.js(공유 서버)가 맡고, 여기서는 화면만 다룸 */
 import { memberName, getMe, isMine, fetchCards } from './club.js';
-import { cardStyle, cardImages, CARD_STYLES } from './cards.js';
+import { cardStyle, cardImages, CARD_STYLES, treeLabel } from './cards.js';
 import { t, getLang } from './i18n.js';
-import { QUESTIONS_EN } from './questions-en.js';
+import { QUESTIONS_EN, LEGACY_EN } from './questions-en.js';
 
 // 카드 앞뒤 그림은 만드는 데 시간이 조금 걸려서, 페이지가 한가할 때 미리 준비
 const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
@@ -153,97 +153,44 @@ export const QUESTIONS = {
       ],
     },
   ],
-  Feeling: [
+  Feeling: [   // 화면 이름: Discovery
     {
-      category: '올해의 감정',
+      category: '책과 문장',
       items: [
-        '올해를 하나의 감정으로 표현한다면 어떤 감정인가요?',
-        '올해 가장 많이 웃었던 순간은 언제였나요?',
-        '올해 가장 많이 울컥했던 순간이 있나요?',
-        '올해 나를 가장 자주 찾아온 기분은 무엇이었나요?',
+        '올해 읽었던 책 중 가장 인상 깊었던 책은?',
+        '올해 나의 마음에 가장 오래 남은 문장은?',
       ],
     },
     {
-      category: '마음이 따뜻했던 순간',
+      category: '노래와 콘텐츠',
       items: [
-        '올해 마음이 몽글몽글해졌던 순간이 있나요?',
-        '누군가의 말 한마디에 하루가 환해졌던 적이 있나요?',
-        '올해 "아, 행복하다" 하고 느낀 순간은 언제였나요?',
-        '생각만 해도 미소가 지어지는 올해의 장면이 있나요?',
+        '올해 가장 많이 들었던 노래는?',
+        '올해 가장 추천하고 싶은 영화나 콘텐츠는?',
       ],
     },
     {
-      category: '조금 힘들었던 마음',
+      category: '맛과 취향',
       items: [
-        '올해 마음이 무거웠던 날, 나를 버티게 해준 것은 무엇이었나요?',
-        '올해 털어놓지 못하고 혼자 삼켰던 마음이 있나요?',
-        '불안하거나 걱정될 때 나는 어떻게 마음을 달랬나요?',
-        '올해 내 마음을 가장 많이 흔든 일은 무엇이었나요?',
-      ],
-    },
-    {
-      category: '지금 이 순간의 마음',
-      items: [
-        '이 카드를 쓰는 지금, 내 마음은 어떤 날씨인가요?',
-        '요즘 나를 설레게 하는 것이 있나요?',
-        '지금 가장 듣고 싶은 말은 무엇인가요?',
-        '요즘 내 마음을 편안하게 해주는 것은 무엇인가요?',
-      ],
-    },
-    {
-      category: '마음 전하기',
-      items: [
-        '올해 고맙다고 말하지 못한 마음을 지금 전해 볼까요?',
-        '미안했던 마음이 남아 있는 사람이 있나요?',
-        '올해의 나에게 "수고했어" 말고 해주고 싶은 말이 있나요?',
-        '내년의 나는 어떤 마음으로 하루를 보냈으면 좋겠나요?',
+        '올해 발견한 최고의 맛집이나 음식은?',
+        '올해 새롭게 좋아하게 된 취미나 취향은?',
       ],
     },
   ],
   Wish: [
     {
-      category: '내년의 소원',
+      category: '내년의 도전',
       items: [
-        '내년의 나에게 딱 하나의 소원을 빈다면 무엇인가요?',
-        '내년 이맘때, 어떤 일이 이루어져 있으면 가장 기쁠까요?',
-        '내년에 꼭 한 번 해보고 싶은 일이 있나요?',
-        '내년을 한 단어로 정한다면 어떤 단어로 채우고 싶나요?',
+        '내년에 꼭 이루고 싶은 한 가지는?',
+        '내년에 새롭게 도전해 보고 싶은 것은?',
+        '내년에는 그만하고 싶은 습관이나 행동은?',
       ],
     },
     {
-      category: '소중한 사람을 위한 소원',
+      category: '내년의 나에게',
       items: [
-        '내가 아끼는 사람에게 꼭 이루어졌으면 하는 소원이 있나요?',
-        '이 카드를 읽을 클럽 멤버들에게 빌어주고 싶은 소원은?',
-        '가족이나 친구가 내년에는 덜 아팠으면, 덜 힘들었으면 하는 일이 있나요?',
-        '누군가의 소원을 대신 이뤄줄 수 있다면 누구의 어떤 소원인가요?',
-      ],
-    },
-    {
-      category: '작고 확실한 소원',
-      items: [
-        '거창하지 않아도, 내년에 자주 누리고 싶은 작은 행복은 무엇인가요?',
-        '내년의 평범한 하루가 어떤 모습이었으면 좋겠나요?',
-        '내년에 더 자주 하고 싶은 일과 덜 하고 싶은 일은?',
-        '내년에 나에게 선물하고 싶은 것이 있나요?',
-      ],
-    },
-    {
-      category: '오래 품어온 꿈',
-      items: [
-        '오래전부터 마음속에 품고 있던 꿈이 있나요?',
-        '언젠가 꼭 가보고 싶은 곳이 있다면 어디인가요?',
-        '10년 뒤의 나는 어떤 모습이었으면 좋겠나요?',
-        '아직 아무에게도 말하지 않은 바람이 있다면 살짝 적어볼까요?',
-      ],
-    },
-    {
-      category: '세상을 향한 소원',
-      items: [
-        '내가 사는 세상이 내년에는 조금 더 이렇게 바뀌었으면 하는 점이 있나요?',
-        '모두에게 하나씩 나눠줄 수 있다면 어떤 마음을 나눠주고 싶나요?',
-        '내년에는 내가 누군가에게 어떤 소원이 되어주고 싶나요?',
-        '크리스마스의 기적이 하나 일어난다면 어떤 일이었으면 좋겠나요?',
+        '내년의 나에게 가장 바라는 것은?',
+        '1년 뒤 이 질문을 다시 읽을 나에게 남기고 싶은 말은?',
+        '내년 이맘때 어떤 모습으로 살아가고 있으면 좋겠나요?',
       ],
     },
   ],
@@ -252,7 +199,7 @@ export const QUESTIONS = {
 export const PHOTOS = { Friends: 'assets/friends.webp', Family: 'assets/family-photo.webp' };
 
 // 카드에는 한국어 원문(분류·질문)을 저장하고, 영어로 볼 때만 바꿔 보여 줌
-const EN = new Map();
+const EN = new Map(LEGACY_EN);
 for (const [treeName, groups] of Object.entries(QUESTIONS)) {
   groups.forEach((g, i) => {
     const [cat, items] = QUESTIONS_EN[treeName]?.[i] || [];
@@ -318,7 +265,7 @@ function setSide(back) {
 }
 
 function fill(card) {
-  tagTree.textContent = tree;
+  tagTree.textContent = treeLabel(tree);
   tagCat.textContent = tr(card.category);
   qFront.textContent = tr(card.question);
   qBack.textContent = tr(card.question);

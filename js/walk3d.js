@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as letters from './letters.js';
 import * as club from './club.js';
-import { cardImages } from './cards.js';
+import { cardImages, treeLabel } from './cards.js';
 import { crossStitch } from './stitch.js';
 import { t as say } from './i18n.js';
 import { connect as connectPresence, myId as myPresenceId } from './presence.js';
@@ -1243,7 +1243,7 @@ const treeScaleFor = (n) => TREE.SCALE * (1 + TREE.GROW * (1 - Math.exp(-n / TRE
     light.position.y = 1.2;
     group.add(light);
 
-    const label = labelSprite(info.name, info.glow);
+    const label = labelSprite(treeLabel(info.name), info.glow);
     scene.add(label);
 
     const count = 0;                                         // 서버에서 카드 목록을 받아 오면 채워짐
@@ -1637,7 +1637,7 @@ function makeNameTag(root) {
     set(text) {
       const g = c.getContext('2d');
       g.clearRect(0, 0, c.width, c.height);
-      g.font = 'italic 46px Georgia, "Times New Roman", serif';
+      g.font = 'italic 46px Georgia, ChosunIlboMyungjo, "Times New Roman", serif';
       const w = Math.min(c.width - 8, g.measureText(text).width + 56);
       const x = (c.width - w) / 2, y = 30, h = 68;
       g.fillStyle = 'rgba(0, 20, 70, 0.55)';
@@ -1673,7 +1673,7 @@ const presence = (() => {
       if (!link || document.hidden) return;
       const now = performance.now();
       const m = {
-        id: myPresenceId, no,
+        id: myPresenceId, no, name: club.memberName(no),
         x: +state.pos.x.toFixed(2), y: +state.pos.y.toFixed(2), z: +state.pos.z.toFixed(2),
         yaw: +state.yaw.toFixed(2), sit: state.seat ? 1 : 0,
       };
@@ -1685,6 +1685,7 @@ const presence = (() => {
       lastSent = now; lastMsg = m; force = false;
     },
     throw(m) { link?.emit('throw', m); },
+    nudge() { force = true; },
   };
 })();
 
@@ -1696,11 +1697,12 @@ function receiveOther(m) {
     const h = makeHero();
     dressHero(h, m.no);
     const tag = makeNameTag(h.root);
-    tag.set(club.memberName(m.no));
     h.root.position.set(m.x, m.y || 0, m.z);
-    o = { h, tag, no: m.no, yaw: m.yaw || 0, phase: 0, sitK: m.sit ? 1 : 0, target: new THREE.Vector3(), seen: 0 };
+    o = { h, tag, no: m.no, name: null, yaw: m.yaw || 0, phase: 0, sitK: m.sit ? 1 : 0, target: new THREE.Vector3(), seen: 0 };
     others.set(m.id, o);
   }
+  const name = typeof m.name === 'string' && m.name.trim() ? m.name.slice(0, 12) : club.memberName(m.no);
+  if (o.name !== name) { o.name = name; o.tag.set(name); }   // 닉네임을 바꾸면 머리 위 이름도 바로
   o.target.set(m.x, m.y || 0, m.z);
   o.targetYaw = m.yaw || 0;
   o.sit = m.sit ? 1 : 0;
@@ -1855,7 +1857,7 @@ const puffs = (() => {
 /* ───────── 트리에 걸린 편지 카드 ───────── */
 const ornaments = [];          // { group, card, tree, phase, born }
 const fontReady = Promise.race([
-  document.fonts ? document.fonts.load('20px ChosunIlboMyungjo').catch(() => {}) : null,
+  document.fonts ? document.fonts.load('20px GeuriunXKukhanbakTture').catch(() => {}) : null,
   new Promise((res) => setTimeout(res, 2000)),
 ]);
 
@@ -1890,11 +1892,11 @@ async function ornamentTextures(card) {
         // 양말 카드: 접단에 트리 이름, 다리·발에 답변
         const cx = W * 0.6;
         g.font = 'italic 16px Georgia, serif';
-        g.fillText(card.tree, W * 0.66, H * 0.17);
-        g.font = '10px ChosunIlboMyungjo, serif';
+        g.fillText(treeLabel(card.tree), W * 0.66, H * 0.17);
+        g.font = '10px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         g.fillText(letters.tr(card.category), W * 0.66, H * 0.22);
         g.fillStyle = '#5b2a24';
-        g.font = '14px ChosunIlboMyungjo, serif';
+        g.font = '14px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.48, 6);
         lines.forEach((l, i) => g.fillText(l, cx, H * 0.36 + i * 19));
         g.fillStyle = '#c2453f';
@@ -1903,11 +1905,11 @@ async function ornamentTextures(card) {
       } else if (card.tree === 'Wish') {
         // 별 카드: 가운데에 트리 이름·답변
         g.font = 'italic 15px Georgia, serif';
-        g.fillText(card.tree, W / 2, H * 0.28);
-        g.font = '10px ChosunIlboMyungjo, serif';
+        g.fillText(treeLabel(card.tree), W / 2, H * 0.28);
+        g.font = '10px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         g.fillText(letters.tr(card.category), W / 2, H * 0.34);
         g.fillStyle = '#5b2a24';
-        g.font = '13px ChosunIlboMyungjo, serif';
+        g.font = '13px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.56, 4);
         lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.45 + i * 18));
         g.fillStyle = '#c2453f';
@@ -1917,11 +1919,11 @@ async function ornamentTextures(card) {
         // 진저브레드 편지지: 머리에 트리 이름, 팔·몸통에 답변
         g.fillStyle = '#c2453f';
         g.font = 'italic 16px Georgia, serif';
-        g.fillText(card.tree, W / 2, H * 0.15);
-        g.font = '11px ChosunIlboMyungjo, serif';
+        g.fillText(treeLabel(card.tree), W / 2, H * 0.15);
+        g.font = '11px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         g.fillText(letters.tr(card.category), W / 2, H * 0.21);
         g.fillStyle = '#5b2a24';
-        g.font = '14px ChosunIlboMyungjo, serif';
+        g.font = '14px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.62, 4);
         lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.44 + i * 19));
         g.fillStyle = '#c2453f';
@@ -1930,11 +1932,11 @@ async function ornamentTextures(card) {
       } else if (house) {
         // 지붕(민무늬)에 트리 이름, 몸통에 답변
         g.font = 'italic 16px Georgia, serif';
-        g.fillText(card.tree, W / 2, H * 0.31);
-        g.font = '11px ChosunIlboMyungjo, serif';
+        g.fillText(treeLabel(card.tree), W / 2, H * 0.31);
+        g.font = '11px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         g.fillText(letters.tr(card.category), W / 2, H * 0.4);
         g.fillStyle = '#5b2a24';
-        g.font = '14px ChosunIlboMyungjo, serif';
+        g.font = '14px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.56, 4);
         lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.6 + i * 19));
         g.fillStyle = '#c2453f';
@@ -1942,11 +1944,11 @@ async function ornamentTextures(card) {
         g.fillText(`From. ${club.memberName(card.member)}`, W / 2, H * 0.93);
       } else {
         g.font = 'italic 17px Georgia, serif';
-        g.fillText(card.tree, W / 2, H * 0.2);
-        g.font = '13px ChosunIlboMyungjo, serif';
+        g.fillText(treeLabel(card.tree), W / 2, H * 0.2);
+        g.font = '13px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         g.fillText(letters.tr(card.category), W / 2, H * 0.27);
         g.fillStyle = '#5b2a24';
-        g.font = '15px ChosunIlboMyungjo, serif';
+        g.font = '15px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.66, 5);
         lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.5 + i * 22));
         g.fillStyle = '#c2453f';
@@ -2005,7 +2007,7 @@ function cardLight(card) {
 }
 
 // 언어를 바꾸면 트리에 걸린 카드의 분류 글자도 다시 그림
-document.addEventListener('lang:change', () => {
+function redrawOrnaments() {
   for (const o of ornaments) {
     ornamentTextures(o.card).then(([front, back]) => {
       o.meshes.forEach((m, i) => {
@@ -2017,7 +2019,8 @@ document.addEventListener('lang:change', () => {
       });
     });
   }
-});
+}
+document.addEventListener('lang:change', redrawOrnaments);
 
 async function addOrnament(info, card, slotIndex, animate) {
   const [front, back, im] = await ornamentTextures(card);
@@ -2124,7 +2127,11 @@ async function syncTree(info, animate) {
   }
   info.count = cards.length;                             // 카드 수만큼 트리가 커지고 밝아짐
 }
-const syncAll = (animate) => Promise.all(BIG_TREES.filter((b) => letters.QUESTIONS[b.name]).map((b) => syncTree(b, animate)));
+const syncCards = (animate) => Promise.all(BIG_TREES.filter((b) => letters.QUESTIONS[b.name]).map((b) => syncTree(b, animate)));
+async function syncAll(animate) {
+  if (await club.refreshNames()) { redrawOrnaments(); refreshMyName(); }
+  return syncCards(animate);
+}
 
 async function hangCard(info, draft) {
   const card = await club.addCard({ ...draft, slot: nextSlot(info) });   // 실패하면 편지 창에서 알려 줌
@@ -2729,7 +2736,7 @@ function update(dt, t) {
   const label = state.seat ? say('near.stand')
     : atDoor ? say(house.door.open ? 'near.doorClose' : 'near.doorOpen')
     : nearSeat ? say('near.sit')
-    : nearTree ? say('near.write', { tree: nearTree.name }) : null;
+    : nearTree ? say('near.write', { tree: treeLabel(nearTree.name) }) : null;
   nearbyBtn.classList.toggle('is-on', !!label);
   if (label && nearbyLabel.textContent !== label) nearbyLabel.textContent = label;
   if (!reduce) snow.update(dt, t, camTarget.x, camTarget.z);
@@ -2789,9 +2796,16 @@ function newYearCountdown(now = Date.now()) {
 }
 
 const nameTag = makeNameTag(hero.root);
+const esc = (x) => String(x).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);   // 닉네임을 HTML로 넣을 때
+function refreshMyName() {
+  const me = club.getMe();
+  if (!me) return;
+  const name = club.memberName(me.no);
+  memberEl.innerHTML = `December Club · <b>${esc(name)}</b>`;
+  nameTag.set(name);
+}
 const joined = club.join().then(async (me) => {
-  memberEl.innerHTML = `December Club · <b>${club.memberName(me.no)}</b>`;
-  nameTag.set(club.memberName(me.no));
+  refreshMyName();
   dressHero(hero, me.no);
   presence.start(me.no);
   memberEl.title = club.isOnline() ? '' : say('offline');
@@ -2807,7 +2821,7 @@ document.addEventListener('scene:start', () => {
     const ny = newYearCountdown();
     const dday = ny.days ? `D-${ny.days}` : `Happy New Year`;
     const note = ny.days ? say('dday.note', { year: ny.year, days: ny.days }) : say('newyear.note', { year: ny.year });
-    welcomeEl.innerHTML = `<span class="welcome__dday" role="img" aria-label="${dday}"></span>${say('welcome', { name: club.memberName(me.no) })}<small>${note}</small>`;
+    welcomeEl.innerHTML = `<span class="welcome__dday" role="img" aria-label="${dday}"></span>${say('welcome', { name: esc(club.memberName(me.no)) })}<small>${note}</small>`;
     try { welcomeEl.querySelector('.welcome__dday').append(await crossStitch(dday)); }
     catch { welcomeEl.querySelector('.welcome__dday').textContent = dday; }
     welcomeEl.classList.add('is-on');
@@ -2815,5 +2829,58 @@ document.addEventListener('scene:start', () => {
   });
 }, { once: true });
 
-if (window.__introDone) start();
-else document.addEventListener('intro:done', start);
+/* ───────── 닉네임: 처음 오면 정하고 들어감, 왼쪽 위 이름을 누르면 바꿀 수 있음 ───────── */
+const nickForm = document.querySelector('.nick');
+const nickInput = nickForm.querySelector('.nick__input');
+const nickErr = nickForm.querySelector('.nick__err');
+const nickGo = nickForm.querySelector('.nick__go');
+let nickDone = null;
+function openNick(first) {
+  return new Promise((resolve) => {
+    nickDone = resolve;
+    keys.clear();
+    nickForm.toggleAttribute('data-first', first);
+    nickGo.textContent = say(first ? 'nick.go' : 'nick.save');
+    nickInput.value = first ? (club.getMe()?.nickname || '') : club.memberName(club.getMe()?.no);
+    nickErr.textContent = '';
+    nickGo.disabled = false;
+    nickForm.hidden = false;
+    setTimeout(() => { nickInput.focus(); nickInput.select(); }, 60);
+  });
+}
+function closeNick(result) {
+  nickForm.hidden = true;
+  nickDone?.(result);
+  nickDone = null;
+}
+// 입력하는 동안 걷기·눈 던지기 같은 단축키가 움직이지 않게
+for (const ev of ['keydown', 'keyup']) nickForm.addEventListener(ev, (e) => { if (e.key !== 'Escape') e.stopPropagation(); });
+nickForm.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !nickForm.hasAttribute('data-first')) { e.stopPropagation(); closeNick(null); }
+});
+nickForm.querySelector('.nick__cancel').addEventListener('click', () => closeNick(null));
+nickForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = club.cleanNickname(nickInput.value);
+  if (!name) { nickErr.textContent = say('nick.empty'); nickInput.focus(); return; }
+  nickGo.disabled = true;
+  try {
+    await club.setNickname(name);
+    refreshMyName();
+    redrawOrnaments();
+    presence.nudge();
+    closeNick(name);
+  } catch {
+    nickErr.textContent = say('nick.fail');
+    nickGo.disabled = false;
+  }
+});
+memberEl.addEventListener('click', () => { if (running && nickForm.hidden && !letters.isOpen()) openNick(false); });
+
+async function enter() {
+  const me = await joined;
+  if (club.needsNickname()) await openNick(true);
+  start();
+}
+if (window.__introDone) enter();
+else document.addEventListener('intro:done', enter);

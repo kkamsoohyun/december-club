@@ -87,3 +87,29 @@ grant execute on function public.join_club() to anon, authenticated;
 grant execute on function public.check_member(text) to anon, authenticated;
 grant execute on function public.hang_card(text, text, text, text, text, int) to anon, authenticated;
 grant execute on function public.remove_card(text, uuid) to anon, authenticated;
+
+-- ───────── 닉네임 ─────────
+-- 입장할 때 정한 이름 (1~12자). 토큰을 가진 본인만 바꿀 수 있고, 누구나 번호→이름 목록만 볼 수 있음
+alter table public.members add column if not exists nickname text
+  check (nickname is null or char_length(nickname) between 1 and 12);
+
+create or replace function public.set_nickname(p_token text, p_name text)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  n text := left(btrim(regexp_replace(coalesce(p_name, ''), '\s+', ' ', 'g')), 12);
+begin
+  if char_length(n) < 1 then raise exception 'empty nickname' using errcode = '22023'; end if;
+  update members set nickname = n where token_hash = _hash(p_token);
+  if not found then raise exception 'unknown member' using errcode = '28000'; end if;
+  return n;
+end $$;
+
+create or replace function public.member_names()
+returns table (no bigint, nickname text)
+language sql stable security definer set search_path = public as $$
+  select no, nickname from members where nickname is not null
+$$;
+
+grant execute on function public.set_nickname(text, text) to anon, authenticated;
+grant execute on function public.member_names() to anon, authenticated;

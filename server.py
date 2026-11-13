@@ -8,6 +8,8 @@
   POST   /api/member/check {token}      내 번호 다시 확인 → {no}
   POST   /api/member/name {token, name} 닉네임 정하기 → {name}
   GET    /api/members/names             번호 → 닉네임 목록 {names}
+  POST   /api/likes {tree, token?}      카드별 공감 수와 내가 눌렀는지 {likes: {id: [n, mine]}}
+  POST   /api/like {token, id}          공감 누르기/취소 → {likes, mine}
   GET    /api/cards?tree=Friends        그 트리에 걸린 카드 목록
   POST   /api/cards                     카드 걸기 {token, tree, category, question, answer, slot}
   DELETE /api/cards {id, token}         내가 건 카드 떼기
@@ -114,6 +116,31 @@ class Handler(SimpleHTTPRequestHandler):
             with lock:
                 no = load()["members"].get(str(data.get("token", "")))
             return self.reply(200, {"no": no}) if no else self.reply(404, {"error": "unknown"})
+        if path == "/api/likes":
+            with lock:
+                db = load()
+                me = db["members"].get(str(data.get("token", "")))
+                ids = {c["id"] for c in db["cards"] if c["tree"] == data.get("tree")}
+                likes = {i: [len(m), me in m] for i, m in db.get("likes", {}).items() if i in ids and m}
+            return self.reply(200, {"likes": likes})
+        if path == "/api/like":
+            with lock:
+                db = load()
+                me = db["members"].get(str(data.get("token", "")))
+                if not me:
+                    return self.reply(403, {"error": "unknown member"})
+                card = next((c for c in db["cards"] if c["id"] == data.get("id")), None)
+                if not card:
+                    return self.reply(404, {"error": "no card"})
+                if card["member"] == me:
+                    return self.reply(400, {"error": "own card"})
+                who = db.setdefault("likes", {}).setdefault(card["id"], [])
+                if me in who:
+                    who.remove(me)
+                else:
+                    who.append(me)
+                save(db)
+            return self.reply(200, {"likes": len(who), "mine": me in who})
         if path == "/api/member/name":
             name = " ".join(str(data.get("name", "")).split())[:MAX_NICK]
             if not name:
@@ -178,6 +205,7 @@ class Handler(SimpleHTTPRequestHandler):
             if not secrets.compare_digest(card["token"], str(data.get("token", ""))):
                 return self.reply(403, {"error": "not yours"})
             db["cards"].remove(card)
+            db.get("likes", {}).pop(card["id"], None)
             save(db)
         return self.reply(200, {"ok": True})
 

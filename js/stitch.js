@@ -4,7 +4,7 @@
 const FABRIC = '#f4ecd9', GAP = '#ddcfb2', THREAD = 'rgba(244, 236, 217, 0.9)';
 
 export async function crossStitch(text, { size = 120, cell = 7 } = {}) {
-  const font = `${size}px Lobster, 'Snell Roundhand', cursive`;
+  const font = `bold ${size}px Inter, sans-serif`;
   try { await document.fonts.load(font, text); } catch { /* 글꼴을 못 불러오면 대체 글꼴로 */ }
 
   const measure = document.createElement('canvas').getContext('2d');

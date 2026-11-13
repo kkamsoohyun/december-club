@@ -10,10 +10,20 @@ import * as club from './club.js';
 import { cardImages, treeLabel } from './cards.js';
 import { crossStitch } from './stitch.js';
 import { t as say } from './i18n.js';
+
+// 표지판·이름표 같은 글씨를 그리기 전에 영문 글꼴(Inter)을 먼저 받아 둠 (최대 2.5초)
+if (document.fonts) {
+  await Promise.race([
+    document.fonts.load('64px Inter', 'December Club').catch(() => {}),
+    new Promise((r) => setTimeout(r, 2500)),
+  ]);
+}
 import { connect as connectPresence, myId as myPresenceId } from './presence.js';
 
 const canvas = document.querySelector('.scene');
 const hint = document.querySelector('.hint--walk');
+const burnBtn = document.querySelector('.burn');          // 모닥불 앞 '걱정 태우기'
+const worryForm = document.querySelector('.worry');
 const joy = document.querySelector('.joy');
 const joyKnob = document.querySelector('.joy__knob');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -429,9 +439,9 @@ const signHearts = [];          // 표지판 하트 전구 { mat, glow, base, ph
   g.strokeStyle = 'rgba(60,35,20,0.35)'; g.lineWidth = 3;
   for (let y = 18; y < 128; y += 26) { g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(170, y + 6, 340, y - 6, 512, y + 2); g.stroke(); }
   g.fillStyle = '#f6ead2';
-  g.font = 'italic 64px Georgia, "Times New Roman", serif';
+  g.font = 'italic 64px Georgia, "Times New Roman", serif';   // 간판 글씨는 영문 필기체 그대로
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('December Club', 256, 68);
+  g.fillText('December Club', 256, 68, 480);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
@@ -552,10 +562,10 @@ function makeMailbox() {
   x.fillStyle = '#f1e4c6'; x.beginPath(); x.roundRect(6, 6, 244, 164, 22); x.fill();
   x.strokeStyle = '#8a1016'; x.lineWidth = 6; x.beginPath(); x.roundRect(16, 16, 224, 144, 16); x.stroke();
   x.fillStyle = '#9d121a'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.font = 'bold 54px Georgia, "Times New Roman", serif';
-  x.fillText('MUSIC', 128, 74);
-  x.font = 'italic 24px Georgia, serif';
-  x.fillText('♪  song requests  ♪', 128, 124);
+  x.font = 'bold 54px Inter, ChosunIlboMyungjo, sans-serif';
+  x.fillText('MUSIC', 128, 74, 210);
+  x.font = '24px Inter, ChosunIlboMyungjo, sans-serif';
+  x.fillText('♪  song requests  ♪', 128, 124, 224);
   const plateTex = new THREE.CanvasTexture(c);
   plateTex.colorSpace = THREE.SRGBColorSpace;
   plateTex.anisotropy = 4;
@@ -615,13 +625,13 @@ function labelSprite(text, color) {
   const c = document.createElement('canvas');
   c.width = 512; c.height = 160;
   const g = c.getContext('2d');
-  g.font = 'italic 84px Georgia, "Times New Roman", serif';
+  g.font = '84px Inter, ChosunIlboMyungjo, sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.shadowColor = color; g.shadowBlur = 28;
   g.fillStyle = '#fff6e4';
-  g.fillText(text, 256, 84);
+  g.fillText(text, 256, 84, 490);
   g.shadowBlur = 0;
-  g.fillText(text, 256, 84);
+  g.fillText(text, 256, 84, 490);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }));
@@ -922,7 +932,7 @@ const houseBox = (lx, lz, hw, hd, rot = 0) => {
     for (const [px, py] of [[32, 32], [992, 32], [32, 218], [992, 218]]) { x.beginPath(); x.arc(px, py, 7, 0, Math.PI * 2); x.fill(); }
     // 글씨: 크림색 테두리 위에 빨간색
     let fs = 170;
-    const font = () => `italic bold ${fs}px Georgia, "Times New Roman", serif`;
+    const font = () => `italic bold ${fs}px Georgia, "Times New Roman", serif`;   // 간판 글씨는 영문 필기체 그대로
     x.font = font();
     while (x.measureText('December Club').width > 900 && fs > 60) { fs -= 4; x.font = font(); }   // 판 안에 꼭 맞게
     x.textAlign = 'center'; x.textBaseline = 'middle';
@@ -1267,7 +1277,7 @@ function applyTreeLevel(info, k) {
   info.collider.r = 0.55 * info.scale;
   const lit = Math.min(1, info.count);                                       // 카드가 하나라도 있으면
   info.litK = (info.litK ?? lit) + (lit - (info.litK ?? lit)) * k;
-  info.light.intensity = info.litK * (3 + b * 26);
+  info.light.intensity = info.litK * (2 + b * 14);
   info.light.distance = 7 + b * 9;
   info.starGlow.scale.setScalar(1.6 + b * 2.2);
   info.label.position.set(info.x, (TREE.TOP + 0.75) * info.scale + 0.3, info.z);
@@ -1425,16 +1435,19 @@ const campfire = { flames: [], embers: null, emberData: [], light: null, glow: n
 }
 
 function animateCampfire(dt, t) {
+  campfire.flare = Math.max(0, (campfire.flare || 0) - dt * 0.45);   // 걱정을 던지면 잠깐 확 타오름
+  const fl = campfire.flare ** 0.7;
   for (const f of campfire.flames) {
     const n = Math.sin(t * 7.3 + f.phase) * 0.5 + Math.sin(t * 13.1 + f.phase * 2) * 0.3 + Math.sin(t * 3.1 + f.phase) * 0.2;
-    const h = f.h * (1 + n * 0.25);
-    f.s.scale.set(f.w * (1 + n * 0.12), h, 1);
+    const h = f.h * (1 + n * 0.25) * (1 + fl * 0.9);
+    f.s.scale.set(f.w * (1 + n * 0.12) * (1 + fl * 0.35), h, 1);
     f.s.position.set(f.x + Math.sin(t * 2.3 + f.phase) * 0.04, 0.15 + h / 2, f.z);
     f.s.material.opacity = 0.8 + n * 0.18;
   }
   const flick = Math.sin(t * 9.1) * 0.5 + Math.sin(t * 23.7) * 0.3 + Math.sin(t * 4.3) * 0.4;
-  campfire.light.intensity = 26 + flick * 5;
+  campfire.light.intensity = 26 + flick * 5 + fl * 45;
   campfire.glow.material.opacity = 0.85 + flick * 0.12;
+  campfire.glow.scale.set(4.5 * (1 + fl * 0.6), 3.6 * (1 + fl * 0.8), 1);
   campfire.coals.material.color.setHSL(0.06, 1, 0.45 + flick * 0.05);
   const pos = campfire.embers.geometry.attributes.position;
   campfire.emberData.forEach((e, i) => {
@@ -1637,7 +1650,7 @@ function makeNameTag(root) {
     set(text) {
       const g = c.getContext('2d');
       g.clearRect(0, 0, c.width, c.height);
-      g.font = 'italic 46px Georgia, ChosunIlboMyungjo, "Times New Roman", serif';
+      g.font = '46px Inter, ChosunIlboMyungjo, sans-serif';
       const w = Math.min(c.width - 8, g.measureText(text).width + 56);
       const x = (c.width - w) / 2, y = 30, h = 68;
       g.fillStyle = 'rgba(0, 20, 70, 0.55)';
@@ -1857,7 +1870,7 @@ const puffs = (() => {
 /* ───────── 트리에 걸린 편지 카드 ───────── */
 const ornaments = [];          // { group, card, tree, phase, born }
 const fontReady = Promise.race([
-  document.fonts ? document.fonts.load('20px GeuriunXKukhanbakTture').catch(() => {}) : null,
+  document.fonts ? Promise.all([document.fonts.load('20px GeuriunXKukhanbakTture'), document.fonts.load('20px Inter')]).catch(() => {}) : null,
   new Promise((res) => setTimeout(res, 2000)),
 ]);
 
@@ -1891,68 +1904,68 @@ async function ornamentTextures(card) {
       if (card.tree === 'Feeling') {
         // 양말 카드: 접단에 트리 이름, 다리·발에 답변
         const cx = W * 0.6;
-        g.font = 'italic 16px Georgia, serif';
+        g.font = '16px Inter, ChosunIlboMyungjo, sans-serif';
         g.fillText(treeLabel(card.tree), W * 0.66, H * 0.17);
-        g.font = '10px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
+        g.font = '10px Inter, GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         g.fillText(letters.tr(card.category), W * 0.66, H * 0.22);
         g.fillStyle = '#5b2a24';
-        g.font = '14px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
+        g.font = '14px Inter, GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.48, 6);
         lines.forEach((l, i) => g.fillText(l, cx, H * 0.36 + i * 19));
         g.fillStyle = '#c2453f';
-        g.font = 'italic 11px Georgia, serif';
+        g.font = '11px Inter, ChosunIlboMyungjo, sans-serif';
         g.fillText(`From. ${club.memberName(card.member)}`, W * 0.48, H * 0.8);
       } else if (card.tree === 'Wish') {
         // 별 카드: 가운데에 트리 이름·답변
-        g.font = 'italic 15px Georgia, serif';
+        g.font = '15px Inter, ChosunIlboMyungjo, sans-serif';
         g.fillText(treeLabel(card.tree), W / 2, H * 0.28);
-        g.font = '10px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
+        g.font = '10px Inter, GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         g.fillText(letters.tr(card.category), W / 2, H * 0.34);
         g.fillStyle = '#5b2a24';
-        g.font = '13px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
+        g.font = '13px Inter, GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.56, 4);
         lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.45 + i * 18));
         g.fillStyle = '#c2453f';
-        g.font = 'italic 10px Georgia, serif';
+        g.font = '10px Inter, ChosunIlboMyungjo, sans-serif';
         g.fillText(`From. ${club.memberName(card.member)}`, W / 2, H * 0.74);
       } else if (card.tree === 'Growth') {
         // 진저브레드 편지지: 머리에 트리 이름, 팔·몸통에 답변
         g.fillStyle = '#c2453f';
-        g.font = 'italic 16px Georgia, serif';
+        g.font = '16px Inter, ChosunIlboMyungjo, sans-serif';
         g.fillText(treeLabel(card.tree), W / 2, H * 0.15);
-        g.font = '11px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
+        g.font = '11px Inter, GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         g.fillText(letters.tr(card.category), W / 2, H * 0.21);
         g.fillStyle = '#5b2a24';
-        g.font = '14px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
+        g.font = '14px Inter, GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.62, 4);
         lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.44 + i * 19));
         g.fillStyle = '#c2453f';
-        g.font = 'italic 11px Georgia, serif';
+        g.font = '11px Inter, ChosunIlboMyungjo, sans-serif';
         g.fillText(`From. ${club.memberName(card.member)}`, W / 2, H * 0.73);
       } else if (house) {
         // 지붕(민무늬)에 트리 이름, 몸통에 답변
-        g.font = 'italic 16px Georgia, serif';
+        g.font = '16px Inter, ChosunIlboMyungjo, sans-serif';
         g.fillText(treeLabel(card.tree), W / 2, H * 0.31);
-        g.font = '11px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
+        g.font = '11px Inter, GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         g.fillText(letters.tr(card.category), W / 2, H * 0.4);
         g.fillStyle = '#5b2a24';
-        g.font = '14px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
+        g.font = '14px Inter, GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.56, 4);
         lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.6 + i * 19));
         g.fillStyle = '#c2453f';
-        g.font = 'italic 11px Georgia, serif';
+        g.font = '11px Inter, ChosunIlboMyungjo, sans-serif';
         g.fillText(`From. ${club.memberName(card.member)}`, W / 2, H * 0.93);
       } else {
-        g.font = 'italic 17px Georgia, serif';
+        g.font = '17px Inter, ChosunIlboMyungjo, sans-serif';
         g.fillText(treeLabel(card.tree), W / 2, H * 0.2);
-        g.font = '13px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
+        g.font = '13px Inter, GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         g.fillText(letters.tr(card.category), W / 2, H * 0.27);
         g.fillStyle = '#5b2a24';
-        g.font = '15px GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
+        g.font = '15px Inter, GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
         const lines = wrapLines(g, card.answer, W * 0.66, 5);
         lines.forEach((l, i) => g.fillText(l, W / 2, H * 0.5 + i * 22));
         g.fillStyle = '#c2453f';
-        g.font = 'italic 13px Georgia, serif';
+        g.font = '13px Inter, ChosunIlboMyungjo, sans-serif';
         g.fillText(`From. ${club.memberName(card.member)}`, W / 2, H * 0.86);
       }
     }
@@ -2048,6 +2061,7 @@ async function addOrnament(info, card, slotIndex, animate) {
   for (const [m, tex] of [[f, front], [b, back]]) {
     m.material.emissive = new THREE.Color(0xd8c6ae).lerp(light, 0.35);   // 종이도 그 빛을 살짝 머금음
     m.material.emissiveMap = tex;
+    m.material.emissiveIntensity = 0.55;                                // 은은하게
   }
   const h = geo.parameters.height;
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -2056,7 +2070,7 @@ async function addOrnament(info, card, slotIndex, animate) {
   }));
   halo.renderOrder = 2;
   halo.position.set(0, -h / 2 - 0.12, 0.22);                // 가지에 가려지지 않게 카드 살짝 앞에
-  halo.scale.setScalar(Math.max(geo.parameters.width, h) * 2.6);
+  halo.scale.setScalar(Math.max(geo.parameters.width, h) * 2.1);
   halo.raycast = () => {};                                   // 클릭은 카드만
   const reach = Math.max(0, rCard - rHook) * S;             // 가지 끝까지의 거리 (카드 로컬)
   const string = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
@@ -2092,7 +2106,7 @@ function animateOrnaments(t) {
     o.group.getWorldPosition(_ornPos);
     _ornDir.set(0, 0, 1).applyQuaternion(o.group.getWorldQuaternion(_ornQ));
     const facing = THREE.MathUtils.clamp(_ornDir.dot(_ornCam.copy(camera.position).sub(_ornPos).normalize()) * 2.2 + 0.35, 0, 1);
-    o.halo.material.opacity = (0.6 + 0.2 * Math.sin(t * 1.7 + o.phase * 3)) * facing;
+    o.halo.material.opacity = (0.28 + 0.08 * Math.sin(t * 1.7 + o.phase * 3)) * facing;
   }
 }
 
@@ -2180,6 +2194,120 @@ function openOrnament(mesh) {
   });
 }
 
+/* ───────── 걱정 태우기 ─────────
+   모닥불 가까이에서 불(또는 🔥 버튼, B)을 누르면 쪽지에 걱정을 적고 불 속으로 던짐
+   쪽지는 포물선을 그리며 날아가 불에 닿으면 확 타오르고 재가 되어 사라짐
+   적은 글은 어디에도 저장하거나 보내지 않음 */
+const FIRE_REACH = 5;                                     // 이만큼 가까이 있어야 던질 수 있음
+const fireHit = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 2.6, 12), new THREE.MeshBasicMaterial({ visible: false }));
+fireHit.position.set(YARD.x, 1.3, YARD.z);
+scene.add(fireHit);
+const nearFire = () => Math.hypot(state.pos.x - YARD.x, state.pos.z - YARD.z) < FIRE_REACH && house.inside < 0.5;
+const worries = [];                                       // 날아가거나 타는 중인 쪽지
+const sparks = [];                                        // 확 튀어 오르는 불티 묶음
+
+function worryTexture(text) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 320;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fbf3e4'; g.fillRect(0, 0, 256, 320);
+  g.strokeStyle = 'rgba(150,110,80,0.35)'; g.lineWidth = 2;
+  for (let y = 60; y < 320; y += 36) { g.beginPath(); g.moveTo(16, y); g.lineTo(240, y); g.stroke(); }
+  g.fillStyle = '#4b2a1c';
+  g.font = '24px Inter, GeuriunXKukhanbakTture, ChosunIlboMyungjo, serif';
+  wrapLines(g, text, 220, 7).forEach((l, i) => g.fillText(l, 18, 52 + i * 36));
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function tossWorry(text) {
+  const t = clock.elapsedTime;
+  keys.clear();
+  state.yaw = Math.atan2(YARD.x - state.pos.x, YARD.z - state.pos.z);   // 불 쪽을 보고
+  lastThrow = t;                                                        // 던지는 팔 동작
+  const mat = new THREE.MeshLambertMaterial({ map: worryTexture(text), side: THREE.DoubleSide, transparent: true });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.42), mat);
+  const dx = Math.sin(state.yaw), dz = Math.cos(state.yaw);
+  const from = new THREE.Vector3(state.pos.x + dx * 0.35, state.pos.y + (state.seat ? 0.95 : 1.3), state.pos.z + dz * 0.35);
+  const to = new THREE.Vector3(YARD.x, 0.75, YARD.z);
+  mesh.position.copy(from);
+  scene.add(mesh);
+  worries.push({ mesh, mat, from, to, born: t, landed: false, spin: (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 3) });
+  window.Sound && Sound.swish(0.7);
+}
+
+function burstSparks() {
+  const N = 46;
+  const pos = new Float32Array(N * 3);
+  const vel = [];
+  for (let i = 0; i < N; i++) {
+    pos.set([YARD.x + (Math.random() - 0.5) * 0.4, 0.8, YARD.z + (Math.random() - 0.5) * 0.4], i * 3);
+    const a = Math.random() * Math.PI * 2, sp = 0.4 + Math.random() * 1.1;
+    vel.push([Math.cos(a) * sp, 2.2 + Math.random() * 2.6, Math.sin(a) * sp]);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: 0.12, map: dotTex, color: 0xffb050, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  scene.add(pts);
+  sparks.push({ pts, vel, age: 0 });
+}
+
+const BURN = { FLY: 0.9, BURN: 1.8 };
+const _burnCol = new THREE.Color();
+function animateWorries(dt, t) {
+  for (let i = worries.length - 1; i >= 0; i--) {
+    const w = worries[i];
+    const age = t - w.born;
+    if (age < BURN.FLY) {
+      const k = age / BURN.FLY;
+      w.mesh.position.lerpVectors(w.from, w.to, k);
+      w.mesh.position.y += Math.sin(k * Math.PI) * 1.1;   // 포물선
+      w.mesh.rotation.set(age * w.spin * 0.6, age * w.spin, age * 2);
+      continue;
+    }
+    if (!w.landed) {
+      w.landed = true;
+      campfire.flare = 1;
+      burstSparks();
+      window.Sound?.fire?.flare?.();
+    }
+    const k = Math.min(1, (age - BURN.FLY) / BURN.BURN);
+    // 하얀 종이 → 주황빛으로 달아오름 → 검게 그을려 재가 됨
+    if (k < 0.35) _burnCol.setRGB(1, 1 - k * 1.2, 1 - k * 2.4);
+    else _burnCol.setRGB(1 - (k - 0.35) * 1.4, 0.58 - (k - 0.35) * 0.8, Math.max(0, 0.16 - (k - 0.35) * 0.2));
+    w.mat.color.copy(_burnCol);
+    w.mat.emissive.setRGB(0.9 * (1 - k), 0.35 * (1 - k), 0.05 * (1 - k));
+    w.mat.opacity = 1 - k * k;
+    w.mesh.scale.setScalar(Math.max(0.05, 1 - k * 0.9));
+    w.mesh.position.y = w.to.y + k * 0.6;
+    w.mesh.rotation.z += dt * 1.5;
+    if (k >= 1) {
+      scene.remove(w.mesh);
+      w.mesh.geometry.dispose(); w.mat.map.dispose(); w.mat.dispose();
+      worries.splice(i, 1);
+    }
+  }
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const sp = sparks[i];
+    sp.age += dt;
+    const pos = sp.pts.geometry.attributes.position;
+    sp.vel.forEach((v, j) => {
+      v[1] -= dt * 0.6;                                   // 불티는 거의 떠오르다 천천히 느려짐
+      pos.setXYZ(j, pos.getX(j) + v[0] * dt, pos.getY(j) + v[1] * dt, pos.getZ(j) + v[2] * dt);
+    });
+    pos.needsUpdate = true;
+    sp.pts.material.opacity = Math.max(0, 1 - sp.age / 2.4);
+    if (sp.age > 2.4) {
+      scene.remove(sp.pts);
+      sp.pts.geometry.dispose(); sp.pts.material.dispose();
+      sparks.splice(i, 1);
+    }
+  }
+}
+
 /* 화면 좌표 → 3D 물체 고르기 */
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
@@ -2191,6 +2319,7 @@ function pick(clientX, clientY) {
   if (card) return { type: 'ornament', mesh: card.object };
   const door = raycaster.intersectObjects(house.door.meshes, false)[0];
   if (door && door.distance < 30) return { type: 'door' };
+  if (nearFire() && raycaster.intersectObject(fireHit, false)[0]) return { type: 'fire' };
   const hit = raycaster.intersectObjects(BIG_TREES.flatMap((b) => [b.mesh, b.label]), false)[0];
   if (!hit) return null;
   const info = hit.object.userData.info || BIG_TREES.find((b) => b.label === hit.object);
@@ -2517,6 +2646,7 @@ const endPointer = (e) => {
     if (hit?.type === 'tree') { keys.clear(); openTree(hit.info); }
     else if (hit?.type === 'ornament') { keys.clear(); openOrnament(hit.mesh); }
     else if (hit?.type === 'door') toggleDoor();
+    else if (hit?.type === 'fire') openWorry();
   }
 };
 // 마우스를 올리면 손가락 커서
@@ -2718,6 +2848,7 @@ function update(dt, t) {
   updatePrints(dt);
   animateDecor(dt, t);
   animateCampfire(dt, t);
+  animateWorries(dt, t);
   animateOrnaments(t);
 
   // 현관문 · 트리 근처 안내 (문이 우선)
@@ -2738,6 +2869,7 @@ function update(dt, t) {
     : nearSeat ? say('near.sit')
     : nearTree ? say('near.write', { tree: treeLabel(nearTree.name) }) : null;
   nearbyBtn.classList.toggle('is-on', !!label);
+  burnBtn.classList.toggle('is-on', active && !letters.isOpen() && worryForm.hidden && !atDoor && nearFire());
   if (label && nearbyLabel.textContent !== label) nearbyLabel.textContent = label;
   if (!reduce) snow.update(dt, t, camTarget.x, camTarget.z);
 }
@@ -2751,6 +2883,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 
+let showControls = false;
 function start() {
   if (running) return;
   running = true;
@@ -2761,7 +2894,7 @@ function start() {
   window.SnowDrift && setTimeout(() => { window.SnowDrift.paused = true; }, 1600);
   setTimeout(() => {
     active = true;
-    if (!state.moved) hint.classList.add('is-on');
+    if (!state.moved && showControls) hint.classList.add('is-on');   // 조작 안내는 처음 닉네임을 만든 날만
   }, 1200);
 
   // 배경 음악(보사노바): 소리가 켜져 있으면 바로, 아니면 첫 탭/키 입력 때 시작
@@ -2877,9 +3010,45 @@ nickForm.addEventListener('submit', async (e) => {
 });
 memberEl.addEventListener('click', () => { if (running && nickForm.hidden && !letters.isOpen()) openNick(false); });
 
+const worryText = worryForm.querySelector('.worry__text');
+const worryToast = document.querySelector('.worry-toast');
+let toastTimer = 0;
+function openWorry() {
+  if (!active || letters.isOpen() || !worryForm.hidden || !nickForm.hidden || !nearFire()) return;
+  keys.clear();
+  worryText.value = '';
+  worryForm.hidden = false;
+  setTimeout(() => worryText.focus(), 60);
+}
+const closeWorry = () => { worryForm.hidden = true; };
+for (const ev of ['keydown', 'keyup']) worryForm.addEventListener(ev, (e) => { if (e.key !== 'Escape') e.stopPropagation(); });
+worryForm.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.stopPropagation(); closeWorry(); }
+  else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); worryForm.requestSubmit(); }
+});
+worryForm.querySelector('.worry__cancel').addEventListener('click', closeWorry);
+worryForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = worryText.value.trim();
+  if (!text) { worryText.focus(); return; }
+  closeWorry();
+  worryText.value = '';                                  // 적은 글은 남기지 않음
+  tossWorry(text);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    worryToast.textContent = say('worry.done');
+    worryToast.classList.add('is-on');
+    toastTimer = setTimeout(() => worryToast.classList.remove('is-on'), 3200);
+  }, (BURN.FLY + 1.2) * 1000);
+});
+burnBtn.addEventListener('click', openWorry);
+addEventListener('keydown', (e) => {
+  if (e.code === 'KeyB' && !e.repeat && worryForm.hidden && nickForm.hidden && nearFire()) { e.preventDefault(); openWorry(); }
+});
+
 async function enter() {
   const me = await joined;
-  if (club.needsNickname()) await openNick(true);
+  if (club.needsNickname()) { await openNick(true); showControls = true; }
   start();
 }
 if (window.__introDone) enter();

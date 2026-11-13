@@ -19,13 +19,24 @@
   <meta name="twitter:title" content="You're invited to December Club 🎄" />
   <meta name="twitter:description" content="올해를 마무리하는 작은 모임에 당신을 초대합니다. 마음속에 남겨둔 이야기를 카드에 적고, 우리의 트리에 하나씩 걸어주세요." />
   <meta name="twitter:image" content="https://december-club-nine.vercel.app/assets/og-image.jpg" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lobster&display=swap" />
   <link rel="icon" href="favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
   <style>
+    @font-face {
+      font-family: 'Inter';
+      src: url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/files/inter-latin-400-normal.woff2') format('woff2');
+      font-weight: 400;
+      font-display: swap;
+      unicode-range: U+0021-007E, U+00A0-00FF, U+2010-2027, U+2030-205E, U+20AC, U+2122, U+2190-2193;
+    }
+    @font-face {
+      font-family: 'Inter';
+      src: url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/files/inter-latin-700-normal.woff2') format('woff2');
+      font-weight: 700;
+      font-display: swap;
+      unicode-range: U+0021-007E, U+00A0-00FF, U+2010-2027, U+2030-205E, U+20AC, U+2122, U+2190-2193;
+    }
     @font-face {
       font-family: 'GeuriunXKukhanbakTture';
       src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2607161334@x-7/x/GriunXHangeulDDURAE-Regular.woff2') format('woff2');
@@ -161,7 +172,7 @@
       bottom: max(20px, env(safe-area-inset-bottom));
       z-index: 4;
       transform: translateX(-50%);
-      font: italic 13px/1 Georgia, 'Times New Roman', serif;
+      font: 13px/1 'Inter', 'ChosunIlboMyungjo', sans-serif;
       letter-spacing: 0.04em;
       color: rgba(233, 220, 192, 0.7);
       white-space: nowrap;
@@ -224,7 +235,7 @@
       border: 1px solid rgba(233, 220, 192, 0.45);
       background: rgba(0, 20, 70, 0.35);
       color: var(--cream);
-      font: 18px/1 Georgia, serif;
+      font: 18px/1 'Inter', 'ChosunIlboMyungjo', sans-serif;
       cursor: pointer;
       opacity: 0;
       pointer-events: none;
@@ -248,7 +259,7 @@
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
       color: rgba(233, 220, 192, 0.5);
-      font: 12px/1 Georgia, serif;
+      font: 12px/1 'Inter', 'ChosunIlboMyungjo', sans-serif;
       letter-spacing: 0.08em;
       cursor: pointer;
     }
@@ -274,7 +285,7 @@
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
       color: #fff3dc;
-      font: 15px/1 'ChosunIlboMyungjo', Georgia, serif;
+      font: 15px/1 'Inter', 'ChosunIlboMyungjo', serif;
       letter-spacing: 0.02em;
       white-space: nowrap;
       cursor: pointer;
@@ -284,6 +295,57 @@
       box-shadow: 0 0 24px rgba(255, 190, 110, 0.25);
     }
     .nearby.is-on { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+    /* 모닥불 가까이: 걱정 태우기 (다른 안내 버튼 위에) */
+    .nearby.burn { bottom: max(80px, calc(env(safe-area-inset-bottom) + 66px)); border-color: rgba(255, 170, 110, 0.7); box-shadow: 0 0 26px rgba(255, 130, 60, 0.35); }
+
+    /* ── 걱정 쪽지 ── */
+    .worry {
+      position: fixed; inset: 0; z-index: 30;
+      display: grid; place-items: center;
+      padding: 16px;
+      background: rgba(30, 10, 4, 0.45);
+      animation: nick-in .4s ease both;
+    }
+    .worry[hidden] { display: none; }
+    .worry__paper {
+      width: min(380px, 100%);
+      padding: 26px 24px 20px;
+      border-radius: 4px;
+      background:
+        repeating-linear-gradient(to bottom, transparent 0 31px, rgba(150, 110, 80, 0.22) 31px 32px),
+        #fbf3e4;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5), 0 0 60px rgba(255, 140, 60, 0.25);
+      transform: rotate(-1.2deg);
+      color: #4b2a1c;
+      text-align: center;
+      font-family: 'Inter', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+    }
+    .worry__title { margin: 0 0 14px; font-size: 18px; font-weight: normal; color: #b4472e; word-break: keep-all; }
+    .worry__text {
+      width: 100%; box-sizing: border-box; resize: none;
+      padding: 6px 4px;
+      border: 0; background: transparent; outline: none;
+      color: #4b2a1c;
+      font: 20px/32px 'Inter', 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', serif;
+    }
+    .worry__text::placeholder { color: rgba(75, 42, 28, 0.38); }
+    .worry__note { margin: 10px 0 14px; font-size: 12px; opacity: 0.65; word-break: keep-all; }
+    .worry__actions { display: flex; gap: 8px; justify-content: center; }
+    .worry__actions button { padding: 10px 20px; border-radius: 999px; cursor: pointer; font: 15px/1 'Inter', 'ChosunIlboMyungjo', serif; }
+    .worry__go { border: 0; background: linear-gradient(#e2672f, #b8361f); color: #fff6ea; box-shadow: 0 4px 14px rgba(200, 70, 30, 0.35); }
+    .worry__cancel { border: 1px solid rgba(180, 71, 46, 0.45); background: transparent; color: #b4472e; }
+    .worry-toast {
+      position: fixed; left: 50%; top: 22%; z-index: 6;
+      transform: translate(-50%, 8px);
+      margin: 0; padding: 0 16px;
+      color: #ffe2b8;
+      font: 20px/1.5 'Inter', 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', serif;
+      text-align: center; text-shadow: 0 0 18px rgba(255, 140, 60, 0.8), 0 1px 3px rgba(0, 0, 0, 0.6);
+      opacity: 0; pointer-events: none;
+      transition: opacity 1s ease, transform 1s ease;
+      width: min(90vw, 520px); word-break: keep-all;
+    }
+    .worry-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
     /* 눈 굴리기 버튼 (오른쪽 아래) — 누르고 있는 동안은 밝게 */
     .roll {
       position: fixed;
@@ -313,7 +375,7 @@
       padding: 2px 6px;
       border: 1px solid rgba(255, 243, 220, 0.5);
       border-radius: 4px;
-      font: 11px/1 Georgia, serif;
+      font: 11px/1 'Inter', 'ChosunIlboMyungjo', sans-serif;
     }
     @media (pointer: coarse) { .nearby kbd { display: none; } }
 
@@ -330,7 +392,7 @@
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
       color: #fff3dc;
-      font: italic 14px/1 Georgia, serif;
+      font: 14px/1 'Inter', 'ChosunIlboMyungjo', sans-serif;
       letter-spacing: 0.06em;
       opacity: 0;
       transition: opacity .8s ease;
@@ -362,7 +424,7 @@
       box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
       text-align: center;
       color: #5b2a24;
-      font-family: 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+      font-family: 'Inter', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
     }
     .nick__title { margin: 0 0 8px; font-size: 20px; font-weight: normal; color: #c2453f; }
     .nick__desc { margin: 0 0 18px; font-size: 13px; line-height: 1.6; opacity: 0.8; word-break: keep-all; }
@@ -373,7 +435,7 @@
       border-radius: 10px;
       background: #fffdf8;
       color: #5b2a24;
-      font: 20px 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', serif;
+      font: 20px 'Inter', 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', serif;
       text-align: center;
       outline: none;
     }
@@ -382,7 +444,7 @@
     .nick__actions { display: flex; gap: 8px; justify-content: center; }
     .nick__actions button {
       padding: 10px 22px; border-radius: 999px; cursor: pointer;
-      font: 15px/1 'ChosunIlboMyungjo', Georgia, serif;
+      font: 15px/1 'Inter', 'ChosunIlboMyungjo', serif;
     }
     .nick__go { border: 0; background: #c2453f; color: #fff6ea; }
     .nick__go:disabled { opacity: 0.6; cursor: default; }
@@ -403,20 +465,20 @@
       transform: translate(-50%, 8px);
       text-align: center;
       color: #fff3dc;
-      font: italic 30px/1.3 Georgia, serif;
+      font: 30px/1.3 'Inter', 'ChosunIlboMyungjo', sans-serif;
       text-shadow: 0 0 22px rgba(255, 190, 110, 0.55);
       opacity: 0;
       pointer-events: none;
       transition: opacity 1s ease, transform 1s ease;
       white-space: nowrap;
     }
-    .welcome small { display: block; font: 14px/1.6 'ChosunIlboMyungjo', Georgia, serif; letter-spacing: 0.04em; opacity: 0.85; }
+    .welcome small { display: block; font: 14px/1.6 'Inter', 'ChosunIlboMyungjo', serif; letter-spacing: 0.04em; opacity: 0.85; }
     /* 새해까지 남은 날 — 올 풀린 천 조각 위 빨간 십자수 (js/stitch.js 가 canvas 로 그림) + 뒤로 은은한 붉은 빛 */
     .welcome__dday {
       display: block;
       margin: 0 auto 6px;
       padding: 10px 30px 4px;
-      font: 64px/1.1 'Lobster', cursive;
+      font: 64px/1.1 'Inter', sans-serif;
       font-style: normal;
       color: #e8303a;
       background: radial-gradient(ellipse 52% 55% at 50% 50%, rgba(255, 80, 70, 0.45), rgba(255, 80, 70, 0.12) 58%, rgba(255, 80, 70, 0) 76%);
@@ -446,7 +508,7 @@
       justify-content: center;
       gap: 18px;
       padding: 16px;
-      font-family: 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+      font-family: 'Inter', 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
     }
     .letter-modal[hidden] { display: none; }
     .letter-modal__backdrop {
@@ -470,7 +532,7 @@
       border: 1px solid rgba(255, 255, 255, 0.4);
       background: rgba(0, 20, 70, 0.4);
       color: #fff;
-      font: 22px/1 Georgia, serif;
+      font: 22px/1 'Inter', 'ChosunIlboMyungjo', sans-serif;
       cursor: pointer;
     }
 
@@ -534,7 +596,7 @@
       letter-spacing: 0.08em;
       color: var(--paper-red);
     }
-    .letter__tag .js-tree { font-family: Georgia, serif; font-style: italic; letter-spacing: 0.04em; }
+    .letter__tag .js-tree { font-family: 'Inter', 'ChosunIlboMyungjo', sans-serif; font-style: normal; letter-spacing: 0.04em; }
     .letter__q {
       position: absolute;
       left: 15%;
@@ -587,7 +649,7 @@
         repeating-linear-gradient(to bottom, transparent 0, transparent calc(2.05em - 1px), rgba(194, 69, 63, 0.28) calc(2.05em - 1px), rgba(194, 69, 63, 0.28) 2.05em);
       background-attachment: local;
       color: var(--paper-ink);
-      font: 4.4cqw/2.05em 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+      font: 4.4cqw/2.05em 'Inter', 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
       text-align: left;
       word-break: keep-all;
       white-space: pre-wrap;
@@ -678,7 +740,6 @@
       top: 35%;
       text-align: right;
       font-size: 3.2cqw;
-      font-style: italic;
       color: var(--paper-red);
     }
     .letter-modal[data-mode="view"] .letter__count { display: none; }
@@ -701,7 +762,7 @@
       border: 1px solid rgba(255, 243, 220, 0.55);
       background: rgba(0, 20, 70, 0.45);
       color: #fff3dc;
-      font: 15px/1 'ChosunIlboMyungjo', Georgia, serif;
+      font: 15px/1 'Inter', 'ChosunIlboMyungjo', serif;
       cursor: pointer;
       white-space: nowrap;
     }
@@ -709,9 +770,28 @@
     .letter-actions .is-primary { background: #c2453f; border-color: #c2453f; }
     .letter-actions .is-primary:hover { background: #d4544d; }
     .letter-actions button:disabled { opacity: 0.4; cursor: default; }
+    /* 공감 ♡ */
+    .letter-actions .js-like.is-on { background: rgba(194, 69, 63, 0.85); border-color: #ffb3b0; }
+    .letter-actions .js-like.is-mine { cursor: default; opacity: 0.85; }
+    .letter-actions .js-like.is-pop, .like.is-pop { animation: like-pop .45s ease; }
+    @keyframes like-pop { 40% { transform: scale(1.18); } }
+    .answers__list .answers__meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+    .answers__list .answers__meta small { margin-top: 0; }
+    .like {
+      flex: none;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(194, 69, 63, 0.4);
+      background: transparent;
+      color: var(--paper-red);
+      font: 13px/1 'Inter', 'ChosunIlboMyungjo', sans-serif;
+      cursor: pointer;
+    }
+    .like.is-on { background: #c2453f; border-color: #c2453f; color: #fff6ea; }
+    .like:disabled { cursor: default; border-style: dashed; }
     .letter-modal[data-mode="write"][data-side="front"] :is(.js-reroll, .js-to-back),
     .letter-modal[data-mode="write"][data-side="back"] :is(.js-to-front, .js-hang),
-    .letter-modal[data-mode="view"] :is(.js-flip, .js-remove) { display: inline-block; }
+    .letter-modal[data-mode="view"] :is(.js-flip, .js-remove, .js-like) { display: inline-block; }
     .letter-modal[data-mode="write"][data-side="front"] .js-others,
     .letter-modal[data-mode="view"] .js-others { display: inline-block; }
     @media (max-width: 640px) { .letter-actions { flex-wrap: wrap; justify-content: center; max-width: 92vw; } }
@@ -738,13 +818,13 @@
       background: #fbf5ea;
       color: var(--paper-ink);
       box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-      font-family: 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+      font-family: 'Inter', 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
     }
     .answers__q { margin: 0 0 12px; color: var(--paper-red); font-size: 16px; line-height: 1.55; text-align: center; word-break: keep-all; }
     .answers__list { list-style: none; margin: 0; padding: 0 4px; overflow-y: auto; flex: 1; }
     .answers__list li { padding: 12px 2px; border-top: 1px dashed rgba(194, 69, 63, 0.35); }
     .answers__list p { margin: 0; font-size: 15px; line-height: 1.7; white-space: pre-wrap; word-break: keep-all; }
-    .answers__list small { display: block; margin-top: 6px; text-align: right; color: var(--paper-red); font: italic 13px Georgia, serif; }
+    .answers__list small { display: block; margin-top: 6px; text-align: right; color: var(--paper-red); font: 13px 'Inter', 'ChosunIlboMyungjo', sans-serif; }
     .answers__close {
       align-self: center;
       margin-top: 12px;
@@ -753,7 +833,7 @@
       border: 1px solid var(--paper-red);
       background: transparent;
       color: var(--paper-red);
-      font: 14px 'ChosunIlboMyungjo', Georgia, serif;
+      font: 14px 'Inter', 'ChosunIlboMyungjo', serif;
       cursor: pointer;
     }
 
@@ -803,6 +883,19 @@
     </form>
     <p class="welcome" aria-hidden="true"></p>
     <button class="nearby" type="button">✦ Friends<kbd>E</kbd></button>
+    <button class="nearby burn" type="button"><span data-i18n="burn.btn">🔥 걱정 태우기</span><kbd>B</kbd></button>
+    <form class="worry" hidden novalidate role="dialog" aria-modal="true" aria-labelledby="worry-title">
+      <div class="worry__paper">
+        <h2 id="worry-title" class="worry__title" data-i18n="worry.title">태워 버리고 싶은 고민이나 걱정</h2>
+        <textarea class="worry__text" maxlength="200" rows="5" data-i18n-attr="placeholder=worry.placeholder, aria-label=worry.title"></textarea>
+        <p class="worry__note" data-i18n="worry.note">어디에도 저장되지 않고, 불과 함께 사라져요</p>
+        <div class="worry__actions">
+          <button class="worry__cancel" type="button" data-i18n="worry.cancel">그만두기</button>
+          <button class="worry__go" type="submit" data-i18n="worry.go">🔥 불에 던지기</button>
+        </div>
+      </div>
+    </form>
+    <p class="worry-toast" aria-live="polite"></p>
 
     <div class="letter-modal" hidden data-mode="write" data-side="front" role="dialog" aria-modal="true" data-i18n-attr="aria-label=letter">
       <div class="letter-modal__backdrop"></div>
@@ -832,6 +925,7 @@
         <button class="js-hang is-primary" type="button" disabled data-i18n="act.hang">✦ 트리에 달기</button>
         <button class="js-flip" type="button" data-i18n="act.flip">↻ 뒤집기</button>
         <button class="js-remove" type="button" data-i18n="act.remove">떼어내기</button>
+        <button class="js-like" type="button" hidden aria-pressed="false"></button>
         <button class="js-others" type="button" hidden>💬 같은 질문의 답</button>
       </div>
       <div class="answers" hidden role="dialog" data-i18n-attr="aria-label=answers">

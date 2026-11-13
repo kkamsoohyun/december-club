@@ -2,7 +2,7 @@
    - 앞면: 사진 + 랜덤 질문 / 뒷면: 답변 쓰는 칸
    - 다 쓰면 "트리에 달기" → 트리에 걸린 카드는 다시 눌러서 볼 수 있음
    - 저장은 club.js(공유 서버)가 맡고, 여기서는 화면만 다룸 */
-import { memberName, getMe, isMine, fetchCards } from './club.js';
+import { memberName, getMe, isMine, fetchCards, fetchLikes, toggleLike, likesEnabled } from './club.js';
 import { cardStyle, cardImages, CARD_STYLES, treeLabel } from './cards.js';
 import { t, getLang } from './i18n.js';
 import { QUESTIONS_EN, LEGACY_EN } from './questions-en.js';
@@ -245,6 +245,7 @@ const btn = {
   flip: modal.querySelector('.js-flip'),
   remove: modal.querySelector('.js-remove'),
   others: modal.querySelector('.js-others'),
+  like: modal.querySelector('.js-like'),
 };
 const answersEl = modal.querySelector('.answers');
 const answersQ = modal.querySelector('.answers__q');
@@ -273,6 +274,61 @@ function fill(card) {
   if (PHOTOS[tree]) photo.src = PHOTOS[tree];
   applyStyle(tree);
   loadOthers();
+  btn.like.hidden = true;
+  if (likesTree !== tree) likes = new Map();
+  loadLikes(tree);
+}
+
+/* ───────── 공감 ♡ ─────────
+   남이 건 카드(보기 화면·같은 질문의 답 목록)에 공감을 누르거나 취소. 내 카드는 받은 공감 수만 보여 줌 */
+let likes = new Map();    // 지금 트리의 카드 id → { n, mine }
+let likesTree = null;
+async function loadLikes(tn) {
+  const got = await fetchLikes(tn);
+  if (tree !== tn) return;
+  likes = got; likesTree = tn;
+  renderLike();
+  if (!answersEl.hidden) showOthers();
+}
+const likeOf = (card) => likes.get(card.id) || { n: 0, mine: false };
+function likeLabel(card) {
+  const { n, mine } = likeOf(card);
+  if (isMine(card)) return t('like.mine', { n });
+  return n ? t(mine ? 'liked.n' : 'like.n', { n }) : t('like');
+}
+function paintLike(el, card) {
+  const { n, mine } = likeOf(card);
+  el.textContent = likeLabel(card);
+  el.classList.toggle('is-on', mine);
+  el.classList.toggle('is-mine', isMine(card));
+  el.setAttribute('aria-pressed', String(mine));
+  el.title = isMine(card) ? '' : t('like.title');
+  return n;
+}
+function renderLike() {
+  const show = mode === 'view' && current?.id && likesEnabled() && likesTree === tree;
+  if (!show) { btn.like.hidden = true; return; }
+  const n = paintLike(btn.like, current);
+  btn.like.hidden = isMine(current) && n === 0;            // 내 카드에 아직 공감이 없으면 숨김
+}
+async function pressLike(card, el) {
+  if (!card?.id || isMine(card) || el.dataset.busy) return;
+  const before = likeOf(card);
+  likes.set(card.id, { n: before.n + (before.mine ? -1 : 1), mine: !before.mine });   // 먼저 바꿔 보여 줌
+  el.dataset.busy = '1';
+  paintLike(el, card);
+  el.classList.remove('is-pop'); void el.offsetWidth; el.classList.add('is-pop');
+  if (el !== btn.like && current?.id === card.id) renderLike();
+  try {
+    likes.set(card.id, await toggleLike(card));
+  } catch {
+    likes.set(card.id, before);
+    alert(t('err.like'));
+  }
+  delete el.dataset.busy;
+  paintLike(el, card);
+  if (el !== btn.like && current?.id === card.id) renderLike();
+  if (el === btn.like && !answersEl.hidden) showOthers();
 }
 
 /* 같은 질문에 다른 사람들이 쓴 답 — 트리에 걸린 카드 중 질문이 같은 것 */
@@ -297,7 +353,20 @@ function showOthers() {
     const small = document.createElement('small');
     const d = new Date(c.createdAt);
     small.textContent = `From. ${memberName(c.member)}${isMine(c) ? t('me') : ''}${isNaN(d) ? '' : ` · ${d.getMonth() + 1}. ${d.getDate()}.`}`;
-    li.append(p, small);
+    const meta = document.createElement('div');
+    meta.className = 'answers__meta';
+    if (likesEnabled()) {
+      const like = document.createElement('button');
+      like.type = 'button';
+      like.className = 'like';
+      paintLike(like, c);
+      like.disabled = isMine(c);
+      if (isMine(c) && !likeOf(c).n) like.hidden = true;
+      like.addEventListener('click', () => pressLike(c, like));
+      meta.append(like);
+    } else meta.append(document.createElement('span'));
+    meta.append(small);
+    li.append(p, meta);
     return li;
   }));
   answersEl.hidden = false;
@@ -393,6 +462,7 @@ btn.reroll.addEventListener('click', () => {
   letter.classList.add('is-rerolled');
 });
 btn.others.addEventListener('click', showOthers);
+btn.like.addEventListener('click', () => pressLike(current, btn.like));
 modal.querySelector('.answers__close').addEventListener('click', hideOthers);
 answersEl.addEventListener('click', (e) => { if (e.target === answersEl) hideOthers(); });
 btn.toBack.addEventListener('click', () => setSide(true));
@@ -438,6 +508,7 @@ document.addEventListener('lang:change', () => {
   qFront.textContent = qBack.textContent = tr(current.question);
   if (!answersEl.hidden) showOthers();
   if (!btn.others.hidden) btn.others.textContent = t('act.othersN', { n: others.length });
+  renderLike();
 });
 
 addEventListener('keydown', (e) => {

@@ -481,7 +481,36 @@ window.Sound = (() => {
         src.start(ctx.currentTime + 0.05, Math.random() * sec);
       });
     }
+    // 종이가 불에 닿을 때: 확 타오르는 바람 소리 + 잠깐 세지는 타닥임
+    let flareBuf = null;
+    function flare() {
+      if (!ready()) return;
+      const now = ctx.currentTime + 0.01;
+      const n = Math.floor(ctx.sampleRate * 1.6);
+      const nb = ctx.createBuffer(1, n, ctx.sampleRate);
+      const d = nb.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource(); src.buffer = nb;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.7;
+      bp.frequency.setValueAtTime(350, now);
+      bp.frequency.exponentialRampToValueAtTime(1800, now + 0.35);
+      bp.frequency.exponentialRampToValueAtTime(600, now + 1.5);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.16, now + 0.12);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 1.5);
+      src.connect(bp).connect(g).connect(ctx.destination);
+      src.start(now); src.stop(now + 1.6);
+      if (!flareBuf) flareBuf = crackleBuffer(2.2, 71);
+      const c = ctx.createBufferSource(); c.buffer = flareBuf;
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
+      const cg = ctx.createGain(); cg.gain.value = 0.3;
+      c.connect(hp).connect(cg).connect(ctx.destination);
+      c.start(now + 0.08);
+      c.playbackRate.value = 1.35;                         // 더 촘촘하게
+    }
     return {
+      flare,
       level(v) {
         if (!ready()) return;
         if (!bus) setup();

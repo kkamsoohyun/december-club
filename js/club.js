@@ -94,6 +94,14 @@ async function sbApi(method, url, body) {
     const rows = await sb('rpc/member_names', {});
     return { names: Object.fromEntries(rows.map((r) => [r.no, r.nickname])) };
   }
+  if (url === '/api/likes') {
+    const rows = await sb('rpc/like_counts', { p_tree: body.tree, p_token: body.token ?? null });
+    return { likes: Object.fromEntries(rows.map((r) => [r.card_id, [Number(r.likes), !!r.mine]])) };
+  }
+  if (url === '/api/like') {
+    const [row] = await sb('rpc/toggle_like', { p_token: body.token, p_card: body.id });
+    return { likes: Number(row.likes), mine: !!row.mine };
+  }
   if (url === '/api/cards' && method === 'DELETE') {
     const ok = await sb('rpc/remove_card', { p_token: body.token, p_id: body.id });
     if (!ok) { const e = new Error('not yours'); e.status = 403; throw e; }
@@ -189,4 +197,24 @@ export async function removeCard(card) {
     return;
   }
   write(LOCAL_KEY(card.tree), (read(LOCAL_KEY(card.tree)) || []).filter((c) => c.id !== card.id));
+}
+
+/* ───────── 공감 ─────────
+   남이 건 카드에 ♡ 공감 (내 카드에는 못 누름). 누가 눌렀는지는 보이지 않고 개수만 */
+let likesMissing = false;   // 서버에 공감 기능이 아직 없으면 버튼을 숨김
+export const likesEnabled = () => online && !likesMissing;
+/** 트리의 카드별 공감 → Map(id → { n, mine }) */
+export async function fetchLikes(tree) {
+  const out = new Map();
+  if (!likesEnabled()) return out;
+  try {
+    const { likes } = await api('POST', '/api/likes', { tree, token: me?.token });
+    for (const [id, [n, mine]] of Object.entries(likes || {})) out.set(id, { n, mine });
+  } catch (e) { if (e.status === 404) likesMissing = true; }
+  return out;
+}
+/** 공감 누르기/취소 → { n, mine } */
+export async function toggleLike(card) {
+  const r = await api('POST', '/api/like', { token: me.token, id: card.id });
+  return { n: r.likes, mine: r.mine };
 }

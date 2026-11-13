@@ -10,7 +10,6 @@ export const QUESTIONS_EN = {
     ]],
     ['Thankful feelings', [
       'Which friend gave you the most strength this year? What was the moment?',
-      'Is there something a friend said in passing that you still remember?',
       'Tell us about a day that got better thanks to someone\'s small kindness this year.',
       'Is there something you\'ve always been too shy to say but really want to tell someone?',
     ]],
@@ -30,7 +29,6 @@ export const QUESTIONS_EN = {
       'What new memories do you want to make with your friends next year?',
       'Is there someone you wish you\'d seen more often this year?',
       'How do you hope the people you care about will remember you as a friend?',
-      'Is there something you\'d love to do with a friend someday next year?',
     ]],
   ],
   Family: [
@@ -90,12 +88,6 @@ export const QUESTIONS_EN = {
       'If you gave this year\'s you an award, what would it be called?',
       'Is there something small you kept doing steadily all year?',
     ]],
-    ['Growing next year', [
-      'How do you want to grow a little more next year?',
-      'Is there something new you\'d like to learn next year?',
-      'Is there a promise you hope next year\'s you will keep?',
-      'What would you like to hear from yourself a year from now?',
-    ]],
   ],
   Feeling: [   // shown as Discovery
     ['Books & lines', [
@@ -109,6 +101,15 @@ export const QUESTIONS_EN = {
     ['Tastes & interests', [
       'What was the best restaurant or food you discovered this year?',
       'What hobby or taste did you newly come to love this year?',
+    ]],
+    ['New discoveries', [
+      'What did you try for the first time this year that suited you surprisingly well?',
+      'What small joy of your own did you discover this year?',
+    ]],
+    ['Inspiration & spending', [
+      'What exhibition or work inspired you this year?',
+      'What was your most memorable purchase this year?',
+      'What did you buy this year that you\'re really glad you did?',
     ]],
   ],
   Wish: [
@@ -125,7 +126,7 @@ export const QUESTIONS_EN = {
   ],
 };
 
-// 예전 Feeling·Wish 질문 — 이미 트리에 걸린 카드가 영어 화면에서도 번역되도록 남겨 둠
+// 예전에 쓰던(또는 겹쳐서 뺀) 질문 — 이미 트리에 걸린 카드가 영어 화면에서도 번역되도록 남겨 둠
 export const LEGACY_EN = [
   ["올해의 감정", "This year's feelings"],
   ["올해를 하나의 감정으로 표현한다면 어떤 감정인가요?", "If you described this year as one feeling, what would it be?"],
@@ -178,4 +179,12 @@ export const LEGACY_EN = [
   ["모두에게 하나씩 나눠줄 수 있다면 어떤 마음을 나눠주고 싶나요?", "If you could hand everyone one feeling, what would you give?"],
   ["내년에는 내가 누군가에게 어떤 소원이 되어주고 싶나요?", "Next year, what kind of wish would you like to be for someone?"],
   ["크리스마스의 기적이 하나 일어난다면 어떤 일이었으면 좋겠나요?", "If one Christmas miracle could happen, what would you want it to be?"],
+  ["친구에게 무심코 들었던 말 중 아직도 기억에 남는 말이 있나요?", "Is there something a friend said in passing that you still remember?"],
+  ["내년의 어느 날, 친구와 함께 꼭 해보고 싶은 일이 있나요?", "Is there something you'd love to do with a friend someday next year?"],
+  ["내년의 성장", "Growing next year"],
+  ["내년에는 어떤 모습으로 한 뼘 더 자라고 싶나요?", "How do you want to grow a little more next year?"],
+  ["내년에 새로 배워 보고 싶은 것이 있나요?", "Is there something new you'd like to learn next year?"],
+  ["내년의 나에게 꼭 지켜 주었으면 하는 약속이 있나요?", "Is there a promise you hope next year's you will keep?"],
+  ["1년 뒤의 나에게 어떤 말을 듣고 싶나요?", "What would you like to hear from yourself a year from now?"],
+  ["올해 새롭게 빠져버린 관심사는?", "What new interest did you fall into this year?"],
 ];

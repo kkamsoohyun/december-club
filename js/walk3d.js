@@ -172,7 +172,7 @@ const HOUSE_ROT = Math.atan2(START_P.x, START_P.z);      // 집 정면(+z)이 �
 const HOUSE_FRONT = new THREE.Vector3(Math.sin(HOUSE_ROT), 0, Math.cos(HOUSE_ROT));
 // 트리 마당: 집 앞에 둥근 마당이 있고, 다섯 트리가 그 마당을 빙 둘러섬 (마당 중심 기준)
 //   각도는 마당 중심에서 본 방향 — 0° 는 출발점 쪽, 180° 는 집 쪽
-const PLAZA = { CENTER: 13.5, RING: 7, TREE_R: 11.5, ANGLES: [-110, -50, 0, 50, 110], ENTRY: 25 };
+const PLAZA = { CENTER: 13.5, RING: 8.5, TREE_R: 15, ANGLES: [-110, -50, 0, 50, 110], ENTRY: 25 };
 const HOUSE_SIDE = new THREE.Vector3(HOUSE_FRONT.z, 0, -HOUSE_FRONT.x);
 const YARD = HOUSE_FRONT.clone().multiplyScalar(PLAZA.CENTER);
 const yardAt = (deg, r) => {
@@ -395,7 +395,7 @@ let makeLamp;
   const coalM = new THREE.MeshLambertMaterial({ color: 0x1b1b22 });
   const carrotM = new THREE.MeshLambertMaterial({ color: 0xff8a2a });
   const scarfCols = [0xc8323a, 0x2f7d5b, 0x3b6bd1];
-  [[-140, 14], [140, 14], [-25, 15.5]].forEach(([deg, rr], i) => {
+  [[-140, 16.5], [140, 16.5], [-25, 16.5]].forEach(([deg, rr], i) => {
     const { x, z } = yardAt(deg, rr);
     const sm = new THREE.Group();
     sm.position.set(x, 0, z);

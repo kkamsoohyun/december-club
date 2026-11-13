@@ -66,7 +66,6 @@ export const QUESTIONS_EN = {
   Growth: [
     ['How I\'ve changed', [
       'What has changed most about you since last year?',
-      'Of the things you tried for the first time this year, which took the most courage?',
       'Is there something that used to be hard but feels a little easier now?',
       'Did you pick up a good new habit this year?',
     ]],
@@ -109,7 +108,6 @@ export const QUESTIONS_EN = {
     ['Inspiration & spending', [
       'What exhibition or work inspired you this year?',
       'What was your most memorable purchase this year?',
-      'What did you buy this year that you\'re really glad you did?',
     ]],
   ],
   Wish: [
@@ -187,4 +185,6 @@ export const LEGACY_EN = [
   ["내년의 나에게 꼭 지켜 주었으면 하는 약속이 있나요?", "Is there a promise you hope next year's you will keep?"],
   ["1년 뒤의 나에게 어떤 말을 듣고 싶나요?", "What would you like to hear from yourself a year from now?"],
   ["올해 새롭게 빠져버린 관심사는?", "What new interest did you fall into this year?"],
+  ["올해 처음으로 해본 일 중 가장 용기가 필요했던 것은 무엇인가요?", "Of the things you tried for the first time this year, which took the most courage?"],
+  ["올해 사길 정말 잘했다고 생각하는 물건은?", "What did you buy this year that you're really glad you did?"],
 ];

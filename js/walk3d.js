@@ -8,6 +8,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as letters from './letters.js';
 import * as club from './club.js';
 import * as songs from './songs.js';
+import * as mine from './mine.js';
 import { cardImages, treeLabel } from './cards.js';
 import { crossStitch } from './stitch.js';
 import { t as say } from './i18n.js';
@@ -417,7 +418,7 @@ let makeLamp;
 }
 
 /* ───────── 출발점 표지판 ───────── */
-const uiOpen = () => letters.isOpen() || songs.isOpen();   // 카드·우체통 같은 창이 열려 있나
+const uiOpen = () => letters.isOpen() || songs.isOpen() || mine.isOpen();   // 카드·우체통 같은 창이 열려 있나
 let mailboxGroup = null;                          // 눌러서 음악 우체통을 여는 물체
 const mailboxSpot = new THREE.Vector3();          // 음악 우체통 자리 (노래 추천 받을 때 씀)
 const signHearts = [];          // 표지판 하트 전구 { mat, glow, base, phase, size }
@@ -2917,6 +2918,7 @@ function start() {
   // 배경 음악(보사노바): 소리가 켜져 있으면 바로, 아니면 첫 탭/키 입력 때 시작
   window.Sound && Sound.music.start();
   musicBtn.classList.add('is-on');
+  mine.showButton();
 }
 
 const musicBtn = document.querySelector('.music');
@@ -2926,6 +2928,11 @@ function toggleMusic() {
   musicBtn.setAttribute('aria-pressed', String(on));
 }
 musicBtn.addEventListener('click', toggleMusic);
+document.querySelector('.mine-btn').addEventListener('click', () => {
+  if (!active || uiOpen() || !nickForm.hidden || !worryForm.hidden) return;
+  keys.clear();
+  mine.open();
+});
 addEventListener('keydown', (e) => { if (e.code === 'KeyM' && active) toggleMusic(); });
 
 // 첫 프레임을 미리 그려 두어 전환이 매끄럽게
@@ -3063,8 +3070,11 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyB' && !e.repeat && worryForm.hidden && nickForm.hidden && nearFire()) { e.preventDefault(); openWorry(); }
 });
 
+const sharedFrom = mine.sharedFrom();                     // 친구가 보낸 회고 링크로 왔으면 그 멤버 번호
 async function enter() {
   const me = await joined;
+  // 초대 링크로 왔으면 친구의 회고부터 보여 주고, '나도 참여하기'를 누르면 입장
+  if (sharedFrom && sharedFrom !== club.getMe()?.no) await mine.open(sharedFrom);
   if (club.needsNickname()) { await openNick(true); showControls = true; }
   start();
 }

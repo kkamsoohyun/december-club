@@ -298,6 +298,86 @@
     /* 모닥불 가까이: 걱정 태우기 (다른 안내 버튼 위에) */
     .nearby.burn { bottom: max(80px, calc(env(safe-area-inset-bottom) + 66px)); border-color: rgba(255, 170, 110, 0.7); box-shadow: 0 0 26px rgba(255, 130, 60, 0.35); }
 
+    /* ── 내 회고 모아보기 ── */
+    .mine-btn {
+      position: fixed;
+      top: calc(max(14px, env(safe-area-inset-top)) + 50px);
+      right: max(14px, env(safe-area-inset-right));
+      z-index: 5;
+      height: 36px; padding: 0 14px;
+      display: inline-flex; align-items: center; gap: 6px;
+      border-radius: 18px;
+      border: 1px solid rgba(233, 220, 192, 0.45);
+      background: rgba(0, 20, 70, 0.35);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      color: var(--cream);
+      font: 13px/1 'Inter', 'ChosunIlboMyungjo', sans-serif;
+      cursor: pointer;
+      opacity: 0; pointer-events: none;
+      transition: opacity .8s ease, background .2s ease;
+    }
+    .mine-btn.is-on { opacity: 1; pointer-events: auto; }
+    .mine-btn:hover { background: rgba(0, 28, 95, 0.6); }
+    @media (max-width: 640px) {
+      .mine-btn { top: calc(max(14px, env(safe-area-inset-top)) + 88px); height: 32px; padding: 0 10px; font-size: 12px; }
+    }
+    .mine {
+      position: fixed; inset: 0; z-index: 30;
+      display: grid; place-items: center;
+      padding: 16px;
+      background: rgba(4, 14, 44, 0.55);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      animation: nick-in .4s ease both;
+    }
+    .mine[hidden] { display: none; }
+    .mine__card {
+      position: relative;
+      width: min(520px, 100%);
+      max-height: min(720px, calc(100dvh - 32px));
+      display: flex; flex-direction: column;
+      box-sizing: border-box;
+      padding: 26px 22px 18px;
+      border-radius: 6px;
+      background:
+        repeating-linear-gradient(to bottom, transparent 0 31px, rgba(150, 110, 80, 0.12) 31px 32px),
+        #fbf5ea;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+      color: #4b2a1c;
+      font-family: 'Inter', 'ChosunIlboMyungjo', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+    }
+    .mine__x { position: absolute; top: 10px; right: 12px; border: 0; background: none; color: #a0442f; font-size: 18px; cursor: pointer; padding: 6px; line-height: 1; }
+    .mine__title { margin: 0; text-align: center; font-size: 21px; font-weight: normal; color: #a0442f; }
+    .mine__sub { margin: 4px 0 10px; text-align: center; font-size: 12px; opacity: 0.6; min-height: 1.2em; }
+    .mine__body { flex: 1 1 auto; min-height: 120px; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px 0 4px; border-top: 1px dashed rgba(160, 68, 47, 0.3); scrollbar-width: thin; scrollbar-color: rgba(160, 68, 47, 0.35) transparent; }
+    .mine__msg { margin: 0; padding: 36px 8px; text-align: center; font-size: 13px; opacity: 0.6; word-break: keep-all; }
+    .mine__tree { padding: 14px 0 4px; }
+    .mine__treeName { margin: 0 0 6px; font: 700 13px/1.2 'Inter', 'ChosunIlboMyungjo', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #a0442f; }
+    .mine__tree[data-tree="Family"] .mine__treeName { color: #c2453f; }
+    .mine__tree[data-tree="Growth"] .mine__treeName { color: #3f8a52; }
+    .mine__tree[data-tree="Feeling"] .mine__treeName { color: #c0508a; }
+    .mine__tree[data-tree="Wish"] .mine__treeName { color: #4a6fb8; }
+    .mine__n { font-weight: 400; opacity: 0.6; }
+    .mine__item { padding: 10px 0 12px; border-bottom: 1px solid rgba(150, 110, 80, 0.15); }
+    .mine__tree .mine__item:last-child { border-bottom: 0; }
+    .mine__meta { display: flex; gap: 8px; align-items: center; font-size: 11px; opacity: 0.6; }
+    .mine__cat { padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(75, 42, 28, 0.3); }
+    .mine__date { margin-left: auto; }
+    .mine__q { margin: 6px 0 4px; font-size: 14px; line-height: 1.5; font-weight: 700; word-break: keep-all; }
+    .mine__a { margin: 0; font: 19px/1.55 'Inter', 'GeuriunXKukhanbakTture', 'ChosunIlboMyungjo', serif; color: #5b3424; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .mine__actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+    .mine__actions button {
+      padding: 10px 20px; border-radius: 999px; cursor: pointer;
+      border: 1px solid rgba(160, 68, 47, 0.5); background: transparent; color: #a0442f;
+      font: 14px/1 'Inter', 'ChosunIlboMyungjo', serif;
+    }
+    .mine__actions button[hidden] { display: none; }
+    .mine__actions .mine__share, .mine__actions .mine__join {
+      border: 0; background: linear-gradient(#cf4a3a, #a0302a); color: #fff6ea;
+      box-shadow: 0 4px 14px rgba(160, 48, 42, 0.3);
+    }
+    .mine__actions .mine__join { padding: 12px 28px; font-size: 15px; }
+    .mine[data-guest] .mine__sub { margin: 8px 0 12px; font-size: 13px; line-height: 1.6; opacity: 0.85; word-break: keep-all; }
+
     /* ── 음악 우체통: 추천 노래 목록 ── */
     .songs {
       position: fixed; inset: 0; z-index: 30;
@@ -934,6 +1014,7 @@
     <button class="roll" type="button" aria-pressed="false" data-i18n-attr="aria-label=btn.roll, title=btn.roll">☃</button>
 
     <button class="music" type="button" aria-pressed="true" data-i18n-attr="aria-label=btn.music, title=btn.music">♪</button>
+    <button class="mine-btn" type="button" data-i18n-attr="aria-label=mine.btn, title=mine.btn"><span aria-hidden="true">✉</span><span class="mine-btn__label" data-i18n="mine.btnShort">내 회고</span></button>
     <button class="lang" type="button" data-i18n-attr="aria-label=btn.lang, title=btn.lang"><span lang="ko">KO</span><span lang="en">EN</span></button>
     <button class="member" type="button" aria-live="polite" data-i18n-attr="title=nick.change"></button>
     <form class="nick" hidden novalidate role="dialog" aria-modal="true" aria-labelledby="nick-title">
@@ -951,6 +1032,19 @@
     <p class="welcome" aria-hidden="true"></p>
     <button class="nearby" type="button">✦ Friends<kbd>E</kbd></button>
     <button class="nearby burn" type="button"><span data-i18n="burn.btn">🔥 걱정 태우기</span><kbd>B</kbd></button>
+    <div class="mine" hidden role="dialog" aria-modal="true" aria-labelledby="mine-title">
+      <div class="mine__card">
+        <button class="mine__x" type="button" data-i18n-attr="aria-label=songs.close">✕</button>
+        <h2 id="mine-title" class="mine__title" data-i18n="mine.title">내 회고 모아보기</h2>
+        <p class="mine__sub"></p>
+        <div class="mine__body"></div>
+        <div class="mine__actions">
+          <button class="mine__join" type="button" hidden data-i18n="mine.join">✦ 나도 참여하기</button>
+          <button class="mine__share" type="button" hidden data-i18n="mine.share">🔗 공유하고 초대하기</button>
+          <button class="mine__copy" type="button" hidden data-i18n="mine.copy">글로 복사하기</button>
+        </div>
+      </div>
+    </div>
     <form class="songs" hidden novalidate role="dialog" aria-modal="true" aria-labelledby="songs-title">
       <div class="songs__card">
         <button class="songs__x" type="button" data-i18n-attr="aria-label=songs.close">✕</button>

@@ -49,6 +49,8 @@ const fromRow = (r) => ({
   answer: r.answer, member: r.member, slot: r.slot, createdAt: r.created_at,
 });
 
+const songRow = (r) => ({ id: r.id, member: r.member, title: r.title, artist: r.artist, note: r.note, createdAt: r.created_at });
+
 // server.py 의 /api 를 쓰는 경우
 async function api(method, url, body) {
   if (SB) return sbApi(method, url, body);
@@ -101,6 +103,16 @@ async function sbApi(method, url, body) {
   if (url === '/api/like') {
     const [row] = await sb('rpc/toggle_like', { p_token: body.token, p_card: body.id });
     return { likes: Number(row.likes), mine: !!row.mine };
+  }
+  if (url === '/api/songs') return { songs: (await sb('rpc/list_songs', {})).map(songRow) };
+  if (url === '/api/song' && method === 'POST') {
+    const [row] = await sb('rpc/add_song', { p_token: body.token, p_title: body.title, p_artist: body.artist, p_note: body.note });
+    return { song: songRow(row) };
+  }
+  if (url === '/api/song' && method === 'DELETE') {
+    const ok = await sb('rpc/remove_song', { p_token: body.token, p_id: body.id });
+    if (!ok) { const e = new Error('not yours'); e.status = 403; throw e; }
+    return { ok };
   }
   if (url === '/api/cards' && method === 'DELETE') {
     const ok = await sb('rpc/remove_card', { p_token: body.token, p_id: body.id });
@@ -217,4 +229,38 @@ export async function fetchLikes(tree) {
 export async function toggleLike(card) {
   const r = await api('POST', '/api/like', { token: me.token, id: card.id });
   return { n: r.likes, mine: r.mine };
+}
+
+/* ───────── 음악 우체통 ─────────
+   연말에 함께 듣고 싶은 노래를 서로 추천. 서버가 없으면(혼자 모드) 이 브라우저에만 저장 */
+const SONGS_KEY = 'december-club.songs';
+export const SONG_MAX = { title: 60, artist: 40, note: 80, mine: 10 };
+let songsMissing = false;
+const songsOnline = () => online && !songsMissing;
+const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+export const isMySong = (song) => !!me && (song.local || song.member === me.no);
+
+/** 추천 노래 목록 (최신순) */
+export async function fetchSongs() {
+  if (songsOnline()) {
+    try { return (await api('POST', '/api/songs', {})).songs || []; }
+    catch (e) { if (e.status === 404 || e.message === 'unknown route') songsMissing = true; else throw e; }
+  }
+  return read(SONGS_KEY) || [];
+}
+/** 노래 추천하기 → 새 노래 */
+export async function addSong(draft) {
+  const song = { title: clip(draft.title, SONG_MAX.title), artist: clip(draft.artist, SONG_MAX.artist), note: clip(draft.note, SONG_MAX.note) };
+  if (!song.title) { const e = new Error('empty title'); e.status = 400; throw e; }
+  if (songsOnline()) return (await api('POST', '/api/song', { ...song, token: me.token })).song;
+  const list = read(SONGS_KEY) || [];
+  if (list.length >= SONG_MAX.mine) { const e = new Error('too many songs'); e.status = 400; throw e; }
+  const saved = { ...song, id: `local-${Date.now().toString(36)}`, member: me?.no ?? 0, local: true, createdAt: new Date().toISOString() };
+  write(SONGS_KEY, [saved, ...list]);
+  return saved;
+}
+/** 내가 추천한 노래 빼기 */
+export async function removeSong(song) {
+  if (song.local) { write(SONGS_KEY, (read(SONGS_KEY) || []).filter((s) => s.id !== song.id)); return; }
+  await api('DELETE', '/api/song', { id: song.id, token: me.token });
 }

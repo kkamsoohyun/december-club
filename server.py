@@ -10,6 +10,9 @@
   GET    /api/members/names             번호 → 닉네임 목록 {names}
   POST   /api/likes {tree, token?}      카드별 공감 수와 내가 눌렀는지 {likes: {id: [n, mine]}}
   POST   /api/like {token, id}          공감 누르기/취소 → {likes, mine}
+  POST   /api/songs {}                  음악 우체통 추천 노래 목록 {songs}
+  POST   /api/song {token, title, artist, note}  노래 추천 → {song}
+  DELETE /api/song {id, token}          내가 추천한 노래 빼기
   GET    /api/cards?tree=Friends        그 트리에 걸린 카드 목록
   POST   /api/cards                     카드 걸기 {token, tree, category, question, answer, slot}
   DELETE /api/cards {id, token}         내가 건 카드 떼기
@@ -32,6 +35,8 @@ TREES = {"Friends", "Family", "Growth", "Feeling", "Wish"}
 MAX_ANSWER = 300
 MAX_SLOTS = 200
 MAX_NICK = 12
+SONG_MAX = {"title": 60, "artist": 40, "note": 80}
+MAX_SONGS_EACH = 10
 lock = threading.Lock()
 
 
@@ -141,6 +146,26 @@ class Handler(SimpleHTTPRequestHandler):
                     who.append(me)
                 save(db)
             return self.reply(200, {"likes": len(who), "mine": me in who})
+        if path == "/api/songs":
+            with lock:
+                songs = sorted(load().get("songs", []), key=lambda x: x["createdAt"], reverse=True)[:300]
+            return self.reply(200, {"songs": songs})
+        if path == "/api/song":
+            song = {k: " ".join(str(data.get(k, "")).split())[:n] for k, n in SONG_MAX.items()}
+            if not song["title"]:
+                return self.reply(400, {"error": "empty title"})
+            with lock:
+                db = load()
+                me = db["members"].get(str(data.get("token", "")))
+                if not me:
+                    return self.reply(403, {"error": "unknown member"})
+                songs = db.setdefault("songs", [])
+                if sum(1 for x in songs if x["member"] == me) >= MAX_SONGS_EACH:
+                    return self.reply(400, {"error": "too many songs"})
+                song.update(id=secrets.token_hex(6), member=me, createdAt=time.strftime("%Y-%m-%dT%H:%M:%S%z"))
+                songs.append(song)
+                save(db)
+            return self.reply(200, {"song": song})
         if path == "/api/member/name":
             name = " ".join(str(data.get("name", "")).split())[:MAX_NICK]
             if not name:
@@ -195,7 +220,21 @@ class Handler(SimpleHTTPRequestHandler):
     def do_DELETE(self):
         path, _ = self.route()
         data = self.body()
-        if path != "/api/cards" or data is None:
+        if data is None:
+            return self.reply(404, {"error": "not found"})
+        if path == "/api/song":
+            with lock:
+                db = load()
+                me = db["members"].get(str(data.get("token", "")))
+                song = next((x for x in db.get("songs", []) if x["id"] == data.get("id")), None)
+                if not song:
+                    return self.reply(404, {"error": "no song"})
+                if not me or song["member"] != me:
+                    return self.reply(403, {"error": "not yours"})
+                db["songs"].remove(song)
+                save(db)
+            return self.reply(200, {"ok": True})
+        if path != "/api/cards":
             return self.reply(404, {"error": "not found"})
         with lock:
             db = load()

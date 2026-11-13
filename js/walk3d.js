@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as letters from './letters.js';
 import * as club from './club.js';
+import * as songs from './songs.js';
 import { cardImages, treeLabel } from './cards.js';
 import { crossStitch } from './stitch.js';
 import { t as say } from './i18n.js';
@@ -416,6 +417,8 @@ let makeLamp;
 }
 
 /* ───────── 출발점 표지판 ───────── */
+const uiOpen = () => letters.isOpen() || songs.isOpen();   // 카드·우체통 같은 창이 열려 있나
+let mailboxGroup = null;                          // 눌러서 음악 우체통을 여는 물체
 const mailboxSpot = new THREE.Vector3();          // 음악 우체통 자리 (노래 추천 받을 때 씀)
 const signHearts = [];          // 표지판 하트 전구 { mat, glow, base, phase, size }
 {
@@ -498,6 +501,7 @@ const signHearts = [];          // 표지판 하트 전구 { mat, glow, base, ph
   const bp = box.getWorldPosition(new THREE.Vector3());
   trees.push({ x: bp.x, z: bp.z, r: 0.42 });
   mailboxSpot.copy(bp);
+  mailboxGroup = box;
 }
 
 /* 빈티지 우체통: 둥근 기둥형 몸통, 둥근 지붕, 투입구, 크림색 MUSIC 명판, 바랜 금색 테
@@ -2181,7 +2185,7 @@ const nearDoor = () => Math.hypot(state.pos.x - house.door.world[0], state.pos.z
 
 const writableTree = (name) => !!letters.QUESTIONS[name];
 function openTree(info) {
-  if (!writableTree(info.name) || letters.isOpen()) return;
+  if (!writableTree(info.name) || uiOpen()) return;
   letters.openWriter(info.name, (draft) => hangCard(info, draft));
 }
 function openOrnament(mesh) {
@@ -2317,6 +2321,8 @@ function pick(clientX, clientY) {
   // 걸린 카드를 먼저 확인 (가지에 살짝 묻혀 있어도 눌리도록)
   const card = raycaster.intersectObjects(ornaments.flatMap((o) => o.meshes), false)[0];
   if (card) return { type: 'ornament', mesh: card.object };
+  const mail = mailboxGroup && raycaster.intersectObject(mailboxGroup, true)[0];
+  if (mail && mail.distance < 30) return { type: 'mailbox' };
   const door = raycaster.intersectObjects(house.door.meshes, false)[0];
   if (door && door.distance < 30) return { type: 'door' };
   if (nearFire() && raycaster.intersectObject(fireHit, false)[0]) return { type: 'fire' };
@@ -2378,7 +2384,7 @@ const toggleRolling = () => (rolling ? letGo() : startRolling());
 
 function updateSnowball(indoors) {
   if (!rolling) return;
-  if (indoors || state.seat || letters.isOpen()) { letGo(); return; }
+  if (indoors || state.seat || uiOpen()) { letGo(); return; }
   const { mesh } = rolling;
   const fx = Math.sin(state.yaw), fz = Math.cos(state.yaw);
   let x = state.pos.x + fx * (rolling.r + 0.32), z = state.pos.z + fz * (rolling.r + 0.32);
@@ -2400,7 +2406,7 @@ function updateSnowball(indoors) {
 }
 rollBtn.addEventListener('click', () => { if (active) toggleRolling(); });
 addEventListener('keydown', (e) => {
-  if (e.code !== 'KeyR' || !active || letters.isOpen() || e.repeat) return;
+  if (e.code !== 'KeyR' || !active || uiOpen() || e.repeat) return;
   e.preventDefault();
   toggleRolling();
 });
@@ -2555,9 +2561,9 @@ function burst(p, n) {
   }
 }
 
-throwBtn.addEventListener('click', () => { if (active && !letters.isOpen()) throwSnowball(); });
+throwBtn.addEventListener('click', () => { if (active && !uiOpen()) throwSnowball(); });
 addEventListener('keydown', (e) => {
-  if (e.code !== 'KeyF' || !active || letters.isOpen() || e.repeat) return;
+  if (e.code !== 'KeyF' || !active || uiOpen() || e.repeat) return;
   e.preventDefault();
   throwSnowball();
 });
@@ -2573,6 +2579,12 @@ let atDoor = false;                                      // 현관문 앞(또는
 const nearbyBtn = document.querySelector('.nearby');
 const nearbyLabel = nearbyBtn.firstChild;
 let nearSeat = null;                                      // 가까운 모닥불 의자
+let nearMail = false;                                     // 음악 우체통 앞이면 true
+function openMailbox() {
+  if (!active || uiOpen() || !nickForm.hidden || !worryForm.hidden) return;
+  keys.clear(); stick.id = null; stick.x = stick.y = 0; joy.classList.remove('is-on'); looks.clear();
+  songs.open();
+}
 function sitDown(seat) { keys.clear(); state.seat = seat; state.unseat = null; }
 function standUp() {
   if (!state.seat) return;
@@ -2583,13 +2595,14 @@ function doNearby() {
   if (state.seat) standUp();
   else if (atDoor) toggleDoor();
   else if (nearSeat) sitDown(nearSeat);
+  else if (nearMail) openMailbox();
   else if (nearTree) { keys.clear(); openTree(nearTree); }
 }
 nearbyBtn.addEventListener('click', doNearby);
 document.addEventListener('letter:open', () => { keys.clear(); stick.id = null; stick.x = stick.y = 0; joy.classList.remove('is-on'); looks.clear(); });
 addEventListener('keydown', (e) => {
-  if (!active || letters.isOpen()) return;
-  if ((e.code === 'KeyE' || e.code === 'Enter') && (atDoor || nearTree || nearSeat || state.seat)) { e.preventDefault(); doNearby(); return; }
+  if (!active || uiOpen()) return;
+  if ((e.code === 'KeyE' || e.code === 'Enter') && (atDoor || nearTree || nearSeat || nearMail || state.seat)) { e.preventDefault(); doNearby(); return; }
   const k = KEYMAP[e.code];
   if (!k) return;
   keys.add(k);
@@ -2604,7 +2617,7 @@ const looks = new Map();                                 // 시점 회전용 포
 
 const downs = new Map();                                 // 탭(클릭) 판별용
 canvas.addEventListener('pointerdown', (e) => {
-  if (!active || letters.isOpen()) return;
+  if (!active || uiOpen()) return;
   try { canvas.setPointerCapture(e.pointerId); } catch { /* 일부 환경에선 실패해도 무방 */ }
   downs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now() });
   const touch = e.pointerType !== 'mouse';
@@ -2647,6 +2660,7 @@ const endPointer = (e) => {
     else if (hit?.type === 'ornament') { keys.clear(); openOrnament(hit.mesh); }
     else if (hit?.type === 'door') toggleDoor();
     else if (hit?.type === 'fire') openWorry();
+    else if (hit?.type === 'mailbox') openMailbox();
   }
 };
 // 마우스를 올리면 손가락 커서
@@ -2664,7 +2678,7 @@ canvas.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 /* ───────── 상태 ───────── */
-const SPEED = 4.3;           // 걷는 속도 (m/s)
+const SPEED = 6;             // 걷는 속도 (m/s)
 const state = {
   pos: new THREE.Vector3(),
   vel: new THREE.Vector3(),
@@ -2855,11 +2869,13 @@ function update(dt, t) {
   animateDoor(t);
   nearTree = null;
   nearSeat = null;
-  atDoor = active && !letters.isOpen() && !state.seat && nearDoor();
-  if (active && !letters.isOpen() && !atDoor && !state.seat && !state.unseat) {
+  atDoor = active && !uiOpen() && !state.seat && nearDoor();
+  if (active && !uiOpen() && !atDoor && !state.seat && !state.unseat) {
     nearSeat = campfire.seats.find((c) => Math.hypot(state.pos.x - c.x, state.pos.z - c.z) < 1.7) || null;
   }
-  if (active && !letters.isOpen() && !atDoor && !nearSeat && !state.seat) {
+  nearMail = active && !uiOpen() && !atDoor && !nearSeat && !state.seat && !state.unseat
+    && Math.hypot(state.pos.x - mailboxSpot.x, state.pos.z - mailboxSpot.z) < 2.6;
+  if (active && !uiOpen() && !atDoor && !nearSeat && !nearMail && !state.seat) {
     for (const b of BIG_TREES) {
       if (writableTree(b.name) && Math.hypot(state.pos.x - b.x, state.pos.z - b.z) < 7.5) { nearTree = b; break; }
     }
@@ -2867,9 +2883,10 @@ function update(dt, t) {
   const label = state.seat ? say('near.stand')
     : atDoor ? say(house.door.open ? 'near.doorClose' : 'near.doorOpen')
     : nearSeat ? say('near.sit')
+    : nearMail ? say('near.mail')
     : nearTree ? say('near.write', { tree: treeLabel(nearTree.name) }) : null;
   nearbyBtn.classList.toggle('is-on', !!label);
-  burnBtn.classList.toggle('is-on', active && !letters.isOpen() && worryForm.hidden && !atDoor && nearFire());
+  burnBtn.classList.toggle('is-on', active && !uiOpen() && worryForm.hidden && !atDoor && nearFire());
   if (label && nearbyLabel.textContent !== label) nearbyLabel.textContent = label;
   if (!reduce) snow.update(dt, t, camTarget.x, camTarget.z);
 }
@@ -3008,13 +3025,13 @@ nickForm.addEventListener('submit', async (e) => {
     nickGo.disabled = false;
   }
 });
-memberEl.addEventListener('click', () => { if (running && nickForm.hidden && !letters.isOpen()) openNick(false); });
+memberEl.addEventListener('click', () => { if (running && nickForm.hidden && !uiOpen()) openNick(false); });
 
 const worryText = worryForm.querySelector('.worry__text');
 const worryToast = document.querySelector('.worry-toast');
 let toastTimer = 0;
 function openWorry() {
-  if (!active || letters.isOpen() || !worryForm.hidden || !nickForm.hidden || !nearFire()) return;
+  if (!active || uiOpen() || !worryForm.hidden || !nickForm.hidden || !nearFire()) return;
   keys.clear();
   worryText.value = '';
   worryForm.hidden = false;
